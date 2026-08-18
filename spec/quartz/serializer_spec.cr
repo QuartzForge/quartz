@@ -20,7 +20,11 @@ describe Quartz::Serializer do
   end
 
   it "turns a nil return into 204 when the status is the default" do
-    Quartz::Serializer.call(nil, 200).status.should eq(204)
+    response = Quartz::Serializer.call(nil, 200)
+
+    response.status.should eq(204)
+    response.body.should eq("")
+    response.headers.has_key?("content-type").should be_false
   end
 
   it "keeps an explicitly declared status even with a nil return" do
@@ -31,7 +35,10 @@ describe Quartz::Serializer do
   it "passes a hand-built Response through unchanged" do
     original = Quartz::Response.new(418, "teapot")
 
-    Quartz::Serializer.call(original, 200).should be(original)
+    passed = Quartz::Serializer.call(original, 200)
+
+    passed.should be(original)
+    passed.status.should eq(418)
   end
 
   it "preserves custom headers on a passed-through Response" do
