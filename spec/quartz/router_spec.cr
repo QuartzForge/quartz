@@ -26,6 +26,18 @@ describe Quartz::Router do
     match.path_params["id"].should eq("42")
   end
 
+  it "allows the same param name in different routes" do
+    router = Quartz::Router.new([
+      route("GET", "/users/:id", "byId"),
+      route("GET", "/posts/:id", "byPostId"),
+    ])
+
+    match = router.match("GET", "/users/7").should_not be_nil
+    match.route.operation_id.should eq("byId")
+    match = router.match("GET", "/posts/9").should_not be_nil
+    match.route.operation_id.should eq("byPostId")
+  end
+
   it "prefers a static segment over a param" do
     router = Quartz::Router.new([
       route("GET", "/users/:id", "byId"),
@@ -74,6 +86,20 @@ describe Quartz::Router do
     match.path_params["rest"].should eq("b")
   end
 
+  it "serves the same wildcard name under several verbs" do
+    router = Quartz::Router.new([
+      route("GET", "/f/*rest", "byGet"),
+      route("POST", "/f/*rest", "byPost"),
+    ])
+
+    match = router.match("GET", "/f/x/y").should_not be_nil
+    match.route.operation_id.should eq("byGet")
+    match.path_params["rest"].should eq("x/y")
+    match = router.match("POST", "/f/x/y").should_not be_nil
+    match.route.operation_id.should eq("byPost")
+    match.path_params["rest"].should eq("x/y")
+  end
+
   it "returns nil when no path matches" do
     router = Quartz::Router.new([route("GET", "/users/:id")])
 
@@ -98,17 +124,41 @@ describe Quartz::Router do
     end
   end
 
+  it "refuses a path that repeats a param name" do
+    expect_raises(Quartz::ConfigError, /GET .*:id.*:id/) do
+      Quartz::Router.new([
+        route("GET", "/users/:id/posts/:id", "dup"),
+        route("GET", "/users/:id/posts/*rest", "wild"),
+      ])
+    end
+  end
+
   it "refuses two different param names in the same position" do
-    expect_raises(Quartz::ConfigError, /:uid.*:id/) do
+    expect_raises(Quartz::ConfigError, /GET .*:uid.*:id/) do
       Quartz::Router.new([route("GET", "/users/:id"), route("GET", "/users/:uid")])
     end
   end
 
   it "refuses two different wildcard names in the same position" do
-    expect_raises(Quartz::ConfigError, /\*other.*\*path/) do
+    expect_raises(Quartz::ConfigError, /(GET|POST) .*\*other.*\*path/) do
       Quartz::Router.new([
         route("GET", "/f/*path", "byPath"),
         route("POST", "/f/*other", "byOther"),
+      ])
+    end
+  end
+
+  it "refuses a path with segments after a wildcard" do
+    expect_raises(Quartz::ConfigError, /after wildcard/) do
+      Quartz::Router.new([route("GET", "/files/*rest/extra", "bad")])
+    end
+  end
+
+  it "reports when a wildcard shadows a plain route" do
+    expect_raises(Quartz::ConfigError, /shadowed by wildcard/) do
+      Quartz::Router.new([
+        route("GET", "/f", "plain"),
+        route("GET", "/f/*rest", "wild"),
       ])
     end
   end

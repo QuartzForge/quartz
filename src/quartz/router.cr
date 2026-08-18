@@ -3,10 +3,11 @@ module Quartz
   # route and its path parameters.
   #
   # Segment matching precedence at each depth is static, then named
-  # param (`:id`), then wildcard (`*rest`). Duplicate routes raise
-  # `ConfigError` at construction time: the same verb and path, two
-  # different param names at the same position, or two different
-  # wildcard names at the same position.
+  # param (`:id`), then wildcard (`*rest`). Ambiguous route tables
+  # raise `ConfigError` at construction time: a verb and path declared
+  # twice, two placeholder names at the same position, a path that
+  # repeats a placeholder name or has segments after its wildcard, or
+  # a wildcard shadowing a plain route of the same verb.
   class Router
     # The result of a successful match: the matched route and the
     # path parameters extracted from the request path.
@@ -33,17 +34,50 @@ module Quartz
       routes.each { |route| insert(route) }
     end
 
+    # A route path may not repeat a placeholder name, since the later
+    # occurrence could never bind its own value; and a wildcard must
+    # be the last segment, since it captures everything after it.
+    private def check_placeholders(route : Quartz::RouteDef, segments : Array(String)) : Nil
+      seen = Set(String).new
+      segments.each_with_index do |segment, index|
+        kind = segment[0]?
+        next unless kind == ':' || kind == '*'
+        name = segment[1..]
+        if seen.includes?(name)
+          raise Quartz::ConfigError.new(
+            "route conflict: #{route.verb} '#{route.path}' declares " \
+            "'#{segment}' more than once"
+          )
+        end
+        if kind == '*' && index != segments.size - 1
+          raise Quartz::ConfigError.new(
+            "route conflict: #{route.verb} '#{route.path}' has " \
+            "segments after wildcard"
+          )
+        end
+        seen.add(name)
+      end
+    end
+
+    # Whether the route declares a wildcard as its last segment.
+    private def wildcard?(route : Quartz::RouteDef) : Bool
+      last = route.segments.last?
+      last ? last.starts_with?('*') : false
+    end
+
     private def insert(route : Quartz::RouteDef) : Nil
+      segments = route.segments
+      check_placeholders(route, segments)
       node = @root
 
-      route.segments.each do |segment|
+      segments.each do |segment|
         case segment[0]?
         when ':'
           name = segment[1..]
           if existing = node.param_name
             unless existing == name
               raise Quartz::ConfigError.new(
-                "route conflict: '#{route.path}' declares ':#{name}' " \
+                "route conflict: #{route.verb} '#{route.path}' declares ':#{name}' " \
                 "where ':#{existing}' is already defined at the same position"
               )
             end
@@ -56,7 +90,7 @@ module Quartz
           if existing = node.wildcard_name
             unless existing == name
               raise Quartz::ConfigError.new(
-                "route conflict: '#{route.path}' declares '*#{name}' " \
+                "route conflict: #{route.verb} '#{route.path}' declares '*#{name}' " \
                 "where '*#{existing}' is already defined at the same position"
               )
             end
@@ -70,7 +104,16 @@ module Quartz
         end
       end
 
-      if node.leaves.has_key?(route.verb)
+      if existing = node.leaves[route.verb]?
+        route_is_wild = wildcard?(route)
+        if route_is_wild != wildcard?(existing)
+          wildcard_route = route_is_wild ? route : existing
+          shadowed = route_is_wild ? existing : route
+          raise Quartz::ConfigError.new(
+            "route conflict: #{route.verb} '#{shadowed.path}' is shadowed " \
+            "by wildcard '#{wildcard_route.path}'"
+          )
+        end
         raise Quartz::ConfigError.new("route conflict: #{route.verb} #{route.path}")
       end
       node.leaves[route.verb] = route
@@ -93,7 +136,9 @@ module Quartz
 
     # Walks the trie one segment at a time, trying the static branch
     # first and backtracking to param, then wildcard, when a branch
-    # cannot match the remaining path.
+    # cannot match the remaining path. A wildcard route matches only
+    # through the wildcard branch, which requires at least one
+    # remaining segment.
     private def descend(
       node : Node,
       segments : Array(String),
