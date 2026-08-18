@@ -8,7 +8,7 @@ private def compile(fixture : String) : {status: Process::Status, output: String
   stdout = IO::Memory.new
   status = Process.run(
     "crystal",
-    ["build", "--no-codegen", "spec/fixtures/compile_fail/#{fixture}"],
+    ["run", "--error-on-warnings", "spec/fixtures/compile_fail/#{fixture}"],
     output: stdout,
     error: stdout,
   )
@@ -39,5 +39,12 @@ describe "compile-time failures" do
     result[:output].should contain("App::UserRepo")
     result[:output].should contain("AppUserRepo")
     result[:output].should contain("app_user_repo")
+  end
+
+  it "refuses two routes with the same verb and path" do
+    result = compile("duplicate_route.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("route conflict")
   end
 end

@@ -24,7 +24,11 @@ TODO: Write usage instructions here
 
 ## Development
 
-TODO: Write development instructions here
+Compile-failure fixtures under `spec/fixtures/compile_fail/` are run with
+`crystal run` in a subprocess. `crystal build --no-codegen` catches macro
+and type errors but never executes top-level code, so a fixture whose
+failure is a runtime raise — such as the duplicate-route conflict, which
+`Router.new` raises — would compile cleanly under it.
 
 ## Contributing
 
