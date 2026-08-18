@@ -1,6 +1,6 @@
 # quartz
 
-TODO: Write a description here
+HTTP framework for robust APIs in Crystal.
 
 ## Installation
 
@@ -9,7 +9,7 @@ TODO: Write a description here
    ```yaml
    dependencies:
      quartz:
-       github: your-github-user/quartz
+       github: QuartzForge/quartz
    ```
 
 2. Run `shards install`
@@ -28,7 +28,7 @@ TODO: Write development instructions here
 
 ## Contributing
 
-1. Fork it (<https://github.com/your-github-user/quartz/fork>)
+1. Fork it (<https://github.com/QuartzForge/quartz/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
@@ -36,4 +36,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [Max Aguiar](https://github.com/your-github-user) - creator and maintainer
+- [Max Aguiar](https://github.com/Aguiiiar) - creator and maintainer
