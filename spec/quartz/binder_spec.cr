@@ -82,6 +82,15 @@ describe Quartz::Binder do
     optional.fetch?("name", String).should be_nil
   end
 
+  it "keeps the first value for a repeated query key, by design" do
+    bound = Quartz::Binder.call(
+      [Quartz::ParamDef.new("tag", "String", :query)],
+      context(query: "tag=a&tag=b"),
+    )
+
+    bound.fetch("tag", String).should eq("a")
+  end
+
   it "accumulates ALL failures in a single BindError" do
     error = expect_raises(Quartz::BindError) do
       ctx = context(query: "page=x&limit=y")
@@ -127,6 +136,22 @@ describe Quartz::Binder do
       Quartz::Binder.call([Quartz::ParamDef.new("page", "Int32", :query)], context)
     end
 
+    error.failures.first.message.should eq("missing required parameter")
+  end
+
+  it "keeps a missing optional param silent while a required sibling fails" do
+    error = expect_raises(Quartz::BindError) do
+      Quartz::Binder.call(
+        [
+          Quartz::ParamDef.new("page", "Int32", :query, required: false),
+          Quartz::ParamDef.new("limit", "Int32", :query),
+        ],
+        context,
+      )
+    end
+
+    error.failures.size.should eq(1)
+    error.failures.first.field.should eq("limit")
     error.failures.first.message.should eq("missing required parameter")
   end
 end
