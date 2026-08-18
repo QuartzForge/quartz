@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 describe Quartz::RouteDef do
-  it "splits the path into segments, ignoring empty bars" do
+  it "splits the path into segments, dropping empty parts" do
     route = Quartz::RouteDef.new(
       verb: "GET",
       path: "/users/:id/posts",

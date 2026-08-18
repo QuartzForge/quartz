@@ -62,8 +62,9 @@ module Quartz
     )
     end
 
-    # The path as its `/`-separated parts, with empty segments from
-    # leading and trailing bars removed.
+    # The path as its `/`-separated parts, with empty segments removed.
+    # Empty segments arise from leading, trailing, or doubled slashes:
+    # `/users//posts/` becomes `["users", "posts"]`.
     def segments : Array(String)
       @path.split('/').reject(&.empty?)
     end
