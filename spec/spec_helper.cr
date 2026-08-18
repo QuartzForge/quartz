@@ -1,6 +1,7 @@
 require "spec"
 require "../src/quartz"
 require "./support/test_client"
+require "./support/example_app"
 
 # Builds an application wired to the given routes and middlewares and
 # wraps it in the in-memory test client.

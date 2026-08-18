@@ -1,0 +1,32 @@
+require "./spec_helper"
+
+# The core promise of Quartz — wrong wiring fails the build, not the
+# first request — cannot be asserted from inside a normal spec, because
+# the spec itself would not compile. So each fixture is compiled in a
+# subprocess and the failure is asserted on its output.
+private def compile(fixture : String) : {status: Process::Status, output: String}
+  stdout = IO::Memory.new
+  status = Process.run(
+    "crystal",
+    ["build", "--no-codegen", "spec/fixtures/compile_fail/#{fixture}"],
+    output: stdout,
+    error: stdout,
+  )
+  {status: status, output: stdout.to_s}
+end
+
+describe "compile-time failures" do
+  it "refuses a dependency that was never registered as a service" do
+    result = compile("missing_service.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("unregistered_repo")
+  end
+
+  it "refuses a dependency cycle, naming the participants" do
+    result = compile("dependency_cycle.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("dependency cycle")
+  end
+end
