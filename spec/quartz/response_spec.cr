@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 describe Quartz::Response do
-  it "constrói resposta JSON com content-type" do
+  it "builds a JSON response with a content-type header" do
     response = Quartz::Response.json(%({"id":1}), 201)
 
     response.status.should eq(201)
@@ -9,7 +9,7 @@ describe Quartz::Response do
     response.headers["content-type"].should eq("application/json")
   end
 
-  it "constrói 204 sem corpo" do
+  it "builds a 204 with an empty body" do
     response = Quartz::Response.no_content
 
     response.status.should eq(204)
