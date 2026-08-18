@@ -1,4 +1,3 @@
-# spec/quartz_spec.cr
 require "./spec_helper"
 
 describe Quartz do

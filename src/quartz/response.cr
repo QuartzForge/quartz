@@ -1,4 +1,3 @@
-# src/quartz/response.cr
 module Quartz
   # A normalized HTTP response, decoupled from any socket.
   #

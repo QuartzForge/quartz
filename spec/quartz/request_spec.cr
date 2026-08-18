@@ -1,4 +1,3 @@
-# spec/quartz/request_spec.cr
 require "../spec_helper"
 
 describe Quartz::Request do

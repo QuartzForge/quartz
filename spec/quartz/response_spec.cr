@@ -1,4 +1,3 @@
-# spec/quartz/response_spec.cr
 require "../spec_helper"
 
 describe Quartz::Response do

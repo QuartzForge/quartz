@@ -1,4 +1,3 @@
-# src/quartz/request.cr
 module Quartz
   # A normalized HTTP request, decoupled from any socket.
   #

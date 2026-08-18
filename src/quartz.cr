@@ -1,4 +1,3 @@
-# src/quartz.cr
 require "http/server"
 require "json"
 require "uuid"

@@ -1,4 +1,3 @@
-# src/quartz/context.cr
 module Quartz
   # Mutable per-request state, carried through the entire pipeline.
   #
