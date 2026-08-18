@@ -27,8 +27,11 @@ module Quartz
       end
       T.from_json(raw)
     rescue ex : JSON::ParseException | JSON::SerializableError
+      # Serializer messages can carry a multi-line parse trace; the first
+      # line names the offending attribute, which is all a client needs.
+      message = ex.message.to_s.lines.first?
       raise Quartz::BindError.new([
-        Quartz::FieldError.new("body", "body", ex.message || "invalid JSON body"),
+        Quartz::FieldError.new("body", "body", message || "invalid JSON body"),
       ])
     end
   end

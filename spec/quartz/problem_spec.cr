@@ -39,10 +39,23 @@ describe Quartz::Problem do
   end
 
   it "omits null keys from the JSON" do
-    body = Quartz::Problem.from(
-      Quartz::BadRequest.new, instance: "/x", request_id: "req-3"
-    ).to_response.body
+    body = JSON.parse(
+      Quartz::Problem.from(
+        Quartz::BadRequest.new, instance: "/x", request_id: "req-3"
+      ).to_response.body
+    ).as_h
 
-    body.should_not contain("\"errors\"")
+    body.has_key?("errors").should be_false
+
+    bare = JSON.parse(
+      Quartz::Problem.new(
+        type: "https://quartz.dev/errors/bad-request",
+        title: "Bad Request",
+        status: 400,
+      ).to_response.body
+    ).as_h
+
+    bare.has_key?("detail").should be_false
+    bare.has_key?("errors").should be_false
   end
 end

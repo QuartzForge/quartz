@@ -4,6 +4,10 @@ record CreateUser, name : String, email : String do
   include JSON::Serializable
 end
 
+record CreateAccount, balance : Float64 do
+  include JSON::Serializable
+end
+
 describe Quartz::Context do
   it "deserializes the body into the requested type" do
     context = Quartz::Context.new(
@@ -54,6 +58,16 @@ describe Quartz::Context do
 
     expect_raises(Quartz::BindError) do
       context.body_as(CreateUser)
+    end
+  end
+
+  it "raises a BindError, not an escaping exception, for a wrong-typed float field" do
+    context = Quartz::Context.new(
+      Quartz::Request.new(method: "POST", path: "/accounts", body: %({"balance":"abc"}))
+    )
+
+    expect_raises(Quartz::BindError) do
+      context.body_as(CreateAccount)
     end
   end
 end
