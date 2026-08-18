@@ -1,14 +1,16 @@
 module Quartz::Middleware
   # Adds CORS headers to responses and answers preflight `OPTIONS`
   # requests itself, with 204 and the allowed methods, headers, and max
-  # age — a preflight never reaches the router.
+  # age. A preflight always carries an `Origin` header, so only an
+  # `OPTIONS` request with one is short-circuited; an `OPTIONS` request
+  # without one is forwarded to the router as a normal request.
   #
   # Only an origin on the configured list receives an
   # `access-control-allow-origin` header; a disallowed origin gets none,
   # so a foreign page cannot read the response. The default of `["*"]` is
   # permissive on purpose for development. With a specific origin the
-  # header echoes that origin and the response is marked `Vary: origin`;
-  # with `*` the header is `*`.
+  # header echoes that origin and `Vary` is extended with `origin`; with
+  # `*` the header is `*`.
   #
   # The pipeline composes it outside the error handler, so error
   # responses — problem documents included — carry the CORS headers on
@@ -28,7 +30,7 @@ module Quartz::Middleware
     def call(ctx : Quartz::Context, forward : Proc(Quartz::Context, Quartz::Response)) : Quartz::Response
       origin = ctx.request.headers["origin"]?
 
-      if ctx.request.method == "OPTIONS"
+      if origin && ctx.request.method == "OPTIONS"
         response = Quartz::Response.new(204)
         apply(response, origin)
         response.headers["access-control-allow-methods"] = @methods.join(", ")
@@ -48,7 +50,7 @@ module Quartz::Middleware
 
       response.headers["access-control-allow-origin"] =
         @origins.includes?("*") ? "*" : origin
-      response.headers["vary"] = "origin"
+      response.headers.add("vary", "origin")
     end
   end
 end
