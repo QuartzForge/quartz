@@ -2,6 +2,7 @@ require "http/server"
 require "json"
 require "uuid"
 require "log"
+require "set"
 
 require "./quartz/version"
 require "./quartz/request"

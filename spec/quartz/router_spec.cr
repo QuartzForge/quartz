@@ -45,6 +45,35 @@ describe Quartz::Router do
     match.path_params["rest"].should eq("a/b/c.txt")
   end
 
+  it "requires at least one segment for a wildcard" do
+    router = Quartz::Router.new([route("GET", "/files/*rest")])
+
+    router.match("GET", "/files").should be_nil
+  end
+
+  it "backtracks past a wildcard that does not serve the verb" do
+    router = Quartz::Router.new([
+      route("POST", "/a/*rest", "postWild"),
+      route("GET", "/:x/b", "getParam"),
+    ])
+
+    match = router.match("GET", "/a/b").should_not be_nil
+    match.route.operation_id.should eq("getParam")
+    match.path_params["x"].should eq("a")
+  end
+
+  it "limits a wildcard to the verbs that declare it" do
+    router = Quartz::Router.new([
+      route("GET", "/:x", "byX"),
+      route("POST", "/:x/*rest", "postWild"),
+    ])
+
+    router.match("GET", "/a/b").should be_nil
+    match = router.match("POST", "/a/b").should_not be_nil
+    match.route.operation_id.should eq("postWild")
+    match.path_params["rest"].should eq("b")
+  end
+
   it "returns nil when no path matches" do
     router = Quartz::Router.new([route("GET", "/users/:id")])
 
@@ -72,6 +101,15 @@ describe Quartz::Router do
   it "refuses two different param names in the same position" do
     expect_raises(Quartz::ConfigError, /:uid.*:id/) do
       Quartz::Router.new([route("GET", "/users/:id"), route("GET", "/users/:uid")])
+    end
+  end
+
+  it "refuses two different wildcard names in the same position" do
+    expect_raises(Quartz::ConfigError, /\*other.*\*path/) do
+      Quartz::Router.new([
+        route("GET", "/f/*path", "byPath"),
+        route("POST", "/f/*other", "byOther"),
+      ])
     end
   end
 end

@@ -4,8 +4,9 @@ module Quartz
   #
   # Segment matching precedence at each depth is static, then named
   # param (`:id`), then wildcard (`*rest`). Duplicate routes raise
-  # `ConfigError` at construction time: the same verb and path, or
-  # two different param names at the same position.
+  # `ConfigError` at construction time: the same verb and path, two
+  # different param names at the same position, or two different
+  # wildcard names at the same position.
   class Router
     # The result of a successful match: the matched route and the
     # path parameters extracted from the request path.
@@ -22,6 +23,7 @@ module Quartz
       property param_name : String?
       property param_node : Node?
       property wildcard_name : String?
+      property wildcard_verbs = Set(String).new
       property leaves = {} of String => Quartz::RouteDef
     end
 
@@ -50,7 +52,18 @@ module Quartz
           end
           node = node.param_node ||= Node.new
         when '*'
-          node.wildcard_name = segment[1..]
+          name = segment[1..]
+          if existing = node.wildcard_name
+            unless existing == name
+              raise Quartz::ConfigError.new(
+                "route conflict: '#{route.path}' declares '*#{name}' " \
+                "where '*#{existing}' is already defined at the same position"
+              )
+            end
+          else
+            node.wildcard_name = name
+          end
+          node.wildcard_verbs.add(route.verb)
           break
         else
           node = (node.statics[segment] ||= Node.new)
@@ -89,7 +102,7 @@ module Quartz
       verb : String,
     ) : Node?
       if index == segments.size
-        return node if node.leaves.has_key?(verb)
+        return node if node.leaves.has_key?(verb) && !node.wildcard_verbs.includes?(verb)
         return
       end
 
@@ -109,7 +122,7 @@ module Quartz
         params.delete(name)
       end
 
-      if name = node.wildcard_name
+      if (name = node.wildcard_name) && node.wildcard_verbs.includes?(verb)
         params[name] = segments[index..].join('/')
         return node
       end
