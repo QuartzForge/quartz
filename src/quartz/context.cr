@@ -14,5 +14,22 @@ module Quartz
 
     def initialize(@request : Quartz::Request)
     end
+
+    # Deserializes the request body into the requested type. JSON failures
+    # become a `BindError` so the client gets a 400-shaped problem, never
+    # a 500.
+    def body_as(type : T.class) : T forall T
+      raw = @request.body
+      if raw.nil? || raw.empty?
+        raise Quartz::BindError.new([
+          Quartz::FieldError.new("body", "body", "request body is required"),
+        ])
+      end
+      T.from_json(raw)
+    rescue ex : JSON::ParseException | JSON::SerializableError
+      raise Quartz::BindError.new([
+        Quartz::FieldError.new("body", "body", ex.message || "invalid JSON body"),
+      ])
+    end
   end
 end
