@@ -1,0 +1,6 @@
+Excluded:
+  - lib
+  - spec/fixtures
+
+Documentation/DocumentationAdmonition:
+  Enabled: false

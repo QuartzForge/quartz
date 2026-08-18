@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==> shards install"
+shards install
+
+if command -v crystalline >/dev/null 2>&1; then
+  echo "==> crystalline já instalado: $(command -v crystalline)"
+  exit 0
+fi
+
+echo "==> instalando crystalline (LSP)"
+if command -v brew >/dev/null 2>&1; then
+  brew install crystalline
+elif command -v yay >/dev/null 2>&1; then
+  yay -S --noconfirm crystalline
+else
+  echo "Instale manualmente: https://github.com/elbywan/crystalline/releases"
+  exit 1
+fi

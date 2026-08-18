@@ -1,0 +1,6 @@
+{
+  "crystal-lang.server": "crystalline",
+  "crystal-lang.mainFile": "${workspaceFolder}/src/quartz.cr",
+  "editor.formatOnSave": true,
+  "[crystal]": { "editor.defaultFormatter": "crystal-lang-tools.crystal-lang" }
+}

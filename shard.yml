@@ -1,0 +1,17 @@
+name: quartz
+version: 0.1.0
+crystal: ~> 1.21
+license: MIT
+description: HTTP framework for robust APIs in Crystal
+repository: https://github.com/QuartzForge/quartz
+
+authors:
+  - Aguiiiar <https://github.com/Aguiiiar>
+
+development_dependencies:
+  # ameba ~> 1.6 (1.6.4) does not compile on Crystal 1.21:
+  # Crystal::Lexer#next_string_array_token was removed in 1.21.
+  # Pin the v1.7.0-dev tag, which supports Crystal >= 1.21.
+  ameba:
+    github: crystal-ameba/ameba
+    tag: v1.7.0-dev

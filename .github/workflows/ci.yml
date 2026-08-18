@@ -1,0 +1,16 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: 1.21.0
+      - run: shards install
+      - run: crystal build lib/ameba/src/cli.cr -o bin/ameba
+      - run: crystal tool format --check
+      - run: ./bin/ameba
+      - run: crystal spec
