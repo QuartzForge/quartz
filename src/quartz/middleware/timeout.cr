@@ -55,12 +55,15 @@ module Quartz::Middleware
       end
     end
 
-    # Renders the deadline for the 504 message. `total_seconds.to_i` would
-    # truncate a sub-second deadline to "0s", so anything under one second
-    # is rendered in milliseconds.
+    # Renders the deadline for the 504 message. `total_seconds.to_i`
+    # would truncate a sub-second deadline to "0s", so anything under one
+    # second is rendered in milliseconds; whole seconds drop the decimal
+    # point.
     private def format_deadline(span : Time::Span) : String
       if span.total_milliseconds < 1000
         "#{span.total_milliseconds.to_i}ms"
+      elsif span.total_seconds == span.total_seconds.to_i
+        "#{span.total_seconds.to_i}s"
       else
         "#{span.total_seconds}s"
       end

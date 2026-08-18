@@ -28,5 +28,16 @@ describe "compile-time failures" do
 
     result[:status].success?.should be_false
     result[:output].should contain("dependency cycle")
+    result[:output].should contain("CycleA")
+    result[:output].should contain("CycleB")
+  end
+
+  it "refuses two services whose getter names collide, naming both types" do
+    result = compile("getter_name_collision.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("App::UserRepo")
+    result[:output].should contain("AppUserRepo")
+    result[:output].should contain("app_user_repo")
   end
 end

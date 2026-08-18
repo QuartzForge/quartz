@@ -38,6 +38,18 @@ describe Quartz::Middleware::Timeout do
     response.body.should contain("Request exceeded 20ms")
   end
 
+  it "renders a whole-second deadline without a decimal point" do
+    client = test_client_for([slow_route(2.seconds)], [
+      Quartz::Middleware::ErrorHandler.new.as(Quartz::Middleware),
+      Quartz::Middleware::Timeout.new(after: 1.seconds).as(Quartz::Middleware),
+    ])
+
+    response = client.get("/slow")
+
+    response.status.should eq(504)
+    response.body.should contain("Request exceeded 1s")
+  end
+
   it "logs an exception the request raises after the deadline fired" do
     backend = Log::MemoryBackend.new
     client = test_client_for([late_raising_route], [

@@ -3,7 +3,10 @@
 # the build instead of the first request. Getters resolve their
 # dependencies through the sibling getters; an argument whose service was
 # never registered has no getter, which compiles to an `undefined local
-# variable or method` error naming it.
+# variable or method` error naming it. Two types whose getter names
+# collide — `App::UserRepo` and `AppUserRepo` both map to
+# `app_user_repo` — are rejected outright, with an error naming both
+# types and the colliding getter.
 #
 # A dependency cycle would turn lazy getters into infinite recursion at
 # boot, so it is detected here, at compile time, by draining the
@@ -28,6 +31,18 @@ module Quartz
         {% if type.annotation(Quartz::Service) || type.annotation(Quartz::Controller) %}
           {% registered[type.name.stringify] = type %}
         {% end %}
+      {% end %}
+
+      # The getter name derivation is not injective — two distinct
+      # types can map to the same getter, and the silently losing type
+      # would never fail the build. Reject the collision outright.
+      {% getter_names = {} of Nil => Nil %}
+      {% for name, type in registered %}
+        {% getter_name = type.name.gsub(/::/, "_").underscore %}
+        {% if getter_names.has_key?(getter_name) %}
+          {% raise "service getter name collision: '#{getter_names[getter_name]}' and '#{type.name}' both map to '#{getter_name}'" %}
+        {% end %}
+        {% getter_names[getter_name] = type.name %}
       {% end %}
 
       {% deps = {} of Nil => Nil %}
