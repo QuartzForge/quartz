@@ -10,7 +10,9 @@ jobs:
         with:
           crystal: 1.21.0
       - run: shards install
-      - run: crystal build lib/ameba/src/cli.cr -o bin/ameba
+      # ameba is pinned to the v1.7.0-dev tag, which ships no postinstall hook,
+      # so its binary must be built explicitly. bin/ is gitignored, hence mkdir.
+      - run: mkdir -p bin && crystal build lib/ameba/src/cli.cr -o bin/ameba
       - run: crystal tool format --check
       - run: ./bin/ameba
       - run: crystal spec
