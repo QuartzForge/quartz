@@ -9,6 +9,11 @@ module Quartz::Middleware
   # permissive on purpose for development. With a specific origin the
   # header echoes that origin and the response is marked `Vary: origin`;
   # with `*` the header is `*`.
+  #
+  # The pipeline composes it outside the error handler, so error
+  # responses — problem documents included — carry the CORS headers on
+  # the way out. A browser would otherwise hide an error body it cannot
+  # read cross-origin.
   class CORS
     include Quartz::Middleware
 

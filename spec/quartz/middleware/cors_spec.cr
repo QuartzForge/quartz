@@ -8,6 +8,16 @@ private def ok_route(verb = "GET", path = "/items")
   )
 end
 
+private def raising_route
+  Quartz::RouteDef.new(
+    verb: "GET", path: "/boom", params: [] of Quartz::ParamDef,
+    status: 200, operation_id: "boom",
+    action: ->(_c : Quartz::Context, _b : Quartz::Bound) : Quartz::Response {
+      raise Quartz::Conflict.new("email already registered")
+    },
+  )
+end
+
 private def cors_client(origins)
   test_client_for([ok_route], [
     Quartz::Middleware::CORS.new(origins: origins).as(Quartz::Middleware),
@@ -38,5 +48,19 @@ describe Quartz::Middleware::CORS do
 
     response.status.should eq(204)
     response.headers["access-control-allow-methods"].should contain("GET")
+  end
+
+  # CORS wraps the error handler so error responses also carry CORS
+  # headers; a browser would otherwise hide the error body cross-origin.
+  it "applies CORS headers to error responses" do
+    client = test_client_for([raising_route], [
+      Quartz::Middleware::CORS.new(origins: ["https://app.example.com"]).as(Quartz::Middleware),
+      Quartz::Middleware::ErrorHandler.new.as(Quartz::Middleware),
+    ])
+
+    response = client.get("/boom", headers: HTTP::Headers{"origin" => "https://app.example.com"})
+
+    response.status.should eq(409)
+    response.headers["access-control-allow-origin"].should eq("https://app.example.com")
   end
 end
