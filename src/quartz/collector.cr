@@ -8,6 +8,8 @@ module Quartz
   # scope: a `finished` expansion that reopens `module Quartz` makes the
   # compiler re-visit its body, where deferred constant lookups fail.
   macro finished
+    {% operation_ids = [] of Nil %}
+
     ROUTES = [
       {% for type in Object.all_subclasses %}
         {% controller = type.annotation(Quartz::Controller) %}
@@ -30,21 +32,28 @@ module Quartz
             {% end %}
 
             {% if verb %}
+              {% operation_id = "#{type.name}.#{method.name}" %}
+              {% if operation_ids.includes?(operation_id) %}
+                {% raise "duplicate operation id: '#{operation_id}' is emitted by more than one annotated method" %}
+              {% end %}
+              {% operation_ids << operation_id %}
+
               {% suffix = route[0] || "" %}
               {% joined = prefix + suffix %}
               {% path = joined.gsub(/\/+/, "/") %}
               {% path = path.size > 1 && path.ends_with?("/") ? path[0..-2] : path %}
               {% path = path.empty? ? "/" : (path.starts_with?("/") ? path : "/" + path) %}
+              {% path_segments = path.split("/") %}
               {% status = route[:status] || 200 %}
 
               Quartz::RouteDef.new(
                 verb: {{ verb }},
                 path: {{ path }},
                 status: {{ status }},
-                operation_id: {{ "#{type.name}.#{method.name}" }},
+                operation_id: {{ operation_id }},
                 params: [
                   {% for arg in method.args %}
-                    {% source = if path.includes?(":" + arg.name.stringify)
+                    {% source = if path_segments.includes?(":" + arg.name.stringify)
                                   "Quartz::ParamSource::Path"
                                 elsif arg.name.stringify == "body"
                                   "Quartz::ParamSource::Body"

@@ -47,4 +47,12 @@ describe "compile-time failures" do
     result[:status].success?.should be_false
     result[:output].should contain("route conflict")
   end
+
+  it "refuses annotated overloads that would emit the same operation id" do
+    result = compile("duplicate_operation_id.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("duplicate operation id")
+    result[:output].should contain("DuplicateOperationIdController.show")
+  end
 end

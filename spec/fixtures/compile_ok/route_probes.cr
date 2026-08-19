@@ -31,6 +31,14 @@ class WelcomeController
   end
 end
 
+@[Quartz::Controller(prefix: "/u")]
+class SegmentProbeController
+  @[Quartz::Get("/:identifier")]
+  def show(identifier : Int64, id : String = "PADRAO") : String
+    "ident=#{identifier} id=#{id}"
+  end
+end
+
 app = Quartz::Application.new(
   Quartz::Router.new(Quartz::ROUTES),
   Quartz::Pipeline.new([] of Quartz::Middleware),
@@ -50,7 +58,7 @@ def dispatch(app : Quartz::Application, method : String, path : String, headers 
 end
 
 paths = Quartz::ROUTES.map(&.path).sort
-raise "expected normalized paths, got #{paths}" unless paths == ["/greet", "/hello", "/ping", "/welcome/home"]
+raise "expected normalized paths, got #{paths}" unless paths == ["/greet", "/hello", "/ping", "/u/:identifier", "/welcome/home"]
 
 ping = Quartz::ROUTES.find { |r| r.path == "/ping" }.not_nil!
 raise "expected a parameterless route to collect no params" unless ping.params.empty?
@@ -69,3 +77,12 @@ raise "expected a header param to be read, got #{hello.body}" unless hello.body 
 
 home = dispatch(app, "GET", "/welcome/home")
 raise "expected a prefix without leading slash to be normalized, got #{home.body}" unless home.body == %("home")
+
+segment_route = Quartz::ROUTES.find { |r| r.path == "/u/:identifier" }.not_nil!
+identifier = segment_route.params.find { |p| p.name == "identifier" }.not_nil!
+id = segment_route.params.find { |p| p.name == "id" }.not_nil!
+raise "expected a full-segment placeholder to classify as a path param" unless identifier.source.path?
+raise "expected a param merely containing a placeholder name to classify as a query param" unless id.source.query?
+
+segment = dispatch(app, "GET", "/u/42?id=DAQUERY")
+raise "expected the query value to reach the method, got #{segment.body}" unless segment.body == %("ident=42 id=DAQUERY")
