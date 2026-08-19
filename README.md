@@ -256,7 +256,7 @@ x-request-id: ohFY6ZKTyyz7-YtJ
 
 ```json
 {
-  "type": "https://quartz.dev/errors/not-found",
+  "type": "https://quartzforge.org/errors/not-found",
   "title": "Not Found",
   "status": 404,
   "detail": "No route matches GET /greetings",

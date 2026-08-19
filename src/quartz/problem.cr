@@ -63,7 +63,7 @@ module Quartz
     # that failed validation.
     def self.from(error : Quartz::BindError, instance : String, request_id : String) : Problem
       new(
-        type: "https://quartz.dev/errors/bind-error",
+        type: "https://quartzforge.org/errors/bind-error",
         title: "Invalid request parameters",
         status: 400,
         detail: error.message,

@@ -25,7 +25,7 @@ module Quartz::Middleware
       @log.error(exception: ex) { "unhandled exception request_id=#{ctx.request_id}" }
 
       Quartz::Problem.new(
-        type: "https://quartz.dev/errors/internal",
+        type: "https://quartzforge.org/errors/internal",
         title: "Internal Server Error",
         status: 500,
         detail: "An unexpected error occurred",

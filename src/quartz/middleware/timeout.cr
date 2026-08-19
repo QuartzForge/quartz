@@ -49,7 +49,7 @@ module Quartz::Middleware
         end
 
         raise Quartz::HTTPError.new(
-          504, "https://quartz.dev/errors/timeout", "Gateway Timeout",
+          504, "https://quartzforge.org/errors/timeout", "Gateway Timeout",
           "Request exceeded #{format_deadline(@after)}"
         )
       end
