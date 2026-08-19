@@ -2,11 +2,13 @@ require "../spec_helper"
 
 describe "Quartz::ROUTES" do
   it "collects one route per annotated method" do
-    Quartz::ROUTES.size.should eq(5)
+    Quartz::ROUTES.size.should eq(7)
   end
 
   it "joins the controller prefix with the method path" do
-    Quartz::ROUTES.map(&.path).sort!.should eq(["/files/*rest", "/users", "/users", "/users/:id", "/users/:id"])
+    Quartz::ROUTES.map(&.path).sort!.should eq(
+      ["/files/*rest", "/users", "/users", "/users/:id", "/users/:id", "/users/:id", "/users/:id"]
+    )
   end
 
   it "normalizes a root method path without a double slash" do
@@ -14,7 +16,7 @@ describe "Quartz::ROUTES" do
   end
 
   it "records the verb of each annotation" do
-    Quartz::ROUTES.map(&.verb).sort!.should eq(["DELETE", "GET", "GET", "GET", "POST"])
+    Quartz::ROUTES.map(&.verb).sort!.should eq(["DELETE", "GET", "GET", "GET", "PATCH", "POST", "PUT"])
   end
 
   it "honors the status declared in the annotation" do
@@ -91,5 +93,21 @@ describe "collected routes, end to end" do
 
     response.status.should eq(200)
     response.json.should eq("downloading:a/b/c.txt")
+  end
+
+  it "serves a PUT with a body and a path param" do
+    response = test_client_for(Quartz::ROUTES).put("/users/7", body: %({"name":"Renamed"}))
+
+    response.status.should eq(200)
+    response.json["id"].should eq(7)
+    response.json["name"].should eq("Renamed")
+  end
+
+  it "serves a PATCH with a path param" do
+    response = test_client_for(Quartz::ROUTES).patch("/users/7")
+
+    response.status.should eq(200)
+    response.json["id"].should eq(7)
+    response.json["name"].should eq("patched 7")
   end
 end

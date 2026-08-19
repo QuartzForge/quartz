@@ -30,7 +30,7 @@ describe Quartz::OpenAPI::Builder do
     paths = built_document.paths
 
     paths.keys.sort!.should eq(["/files/{rest}", "/users", "/users/{id}"])
-    paths["/users/{id}"].keys.sort!.should eq(["delete", "get"])
+    paths["/users/{id}"].keys.sort!.should eq(["delete", "get", "patch", "put"])
   end
 
   it "converts a Quartz :id path segment to OpenAPI {id}" do

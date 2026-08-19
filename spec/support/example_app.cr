@@ -40,6 +40,16 @@ class ExampleController
   @[Quartz::Delete("/:id", status: 204)]
   def destroy(id : Int64) : Nil
   end
+
+  @[Quartz::Put("/:id")]
+  def replace(id : Int64, body : CreateUserPayload) : UserPayload
+    UserPayload.new(id, body.name)
+  end
+
+  @[Quartz::Patch("/:id")]
+  def update(id : Int64) : UserPayload
+    UserPayload.new(id, "patched #{id}")
+  end
 end
 
 @[Quartz::Controller(prefix: "/files")]
