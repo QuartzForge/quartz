@@ -34,7 +34,7 @@ module Quartz
             {% if verb %}
               {% operation_id = "#{type.name}.#{method.name}" %}
               {% if operation_ids.includes?(operation_id) %}
-                {% raise "duplicate operation id: '#{operation_id}' is emitted by more than one annotated method" %}
+                {% raise "duplicate operation id: #{operation_id} is emitted by more than one annotated method" %}
               {% end %}
               {% operation_ids << operation_id %}
 
