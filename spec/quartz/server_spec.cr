@@ -29,19 +29,33 @@ describe Quartz::Server do
 end
 
 describe Quartz do
-  # These examples mutate the global config; snapshot host and port and
-  # restore them afterwards so later spec files read pristine values.
-  # Restoring through `configure` also drops the memoized application,
-  # so each example starts from a pipeline built with default config.
+  # These examples mutate the global config; snapshot every field the
+  # suite can touch — host, port, pipeline inputs, and the openapi
+  # settings — and restore them afterwards so later spec files read
+  # pristine values. Restoring through `configure` also drops the
+  # memoized application, so each example starts from a pipeline built
+  # with default config.
   around_each do |spec|
     host = Quartz.config.host
     port = Quartz.config.port
+    middlewares = Quartz.config.middlewares
+    cors_origins = Quartz.config.cors_origins
+    request_timeout = Quartz.config.request_timeout
+    openapi_title = Quartz.config.openapi.title
+    openapi_version = Quartz.config.openapi.version
+    openapi_path = Quartz.config.openapi.path
 
     spec.run
 
     Quartz.configure do |config|
       config.host = host
       config.port = port
+      config.middlewares = middlewares
+      config.cors_origins = cors_origins
+      config.request_timeout = request_timeout
+      config.openapi.title = openapi_title
+      config.openapi.version = openapi_version
+      config.openapi.path = openapi_path
     end
   end
 

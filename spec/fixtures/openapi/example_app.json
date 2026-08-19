@@ -221,6 +221,11 @@
     "schemas": {
       "Problem": {
         "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
         "properties": {
           "type": {
             "type": "string"

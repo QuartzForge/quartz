@@ -1,6 +1,9 @@
 module Quartz::OpenAPI
-  # Builds the document once at boot from `Quartz::ROUTES`. It knows
-  # neither Router, Binder, nor Server — it only reads route metadata.
+  # Builds the document from `Quartz::ROUTES` at request time: the
+  # embedded OpenAPI route calls `build` on every request, so a change
+  # to the configured title or version is reflected without a rebuild.
+  # It knows neither Router, Binder, nor Server — it only reads route
+  # metadata.
   module Builder
     PROBLEM_SCHEMA = {
       "$ref" => JSON::Any.new("#/components/schemas/Problem"),
@@ -8,9 +11,12 @@ module Quartz::OpenAPI
 
     # The RFC 9457 problem document, as `Quartz::Problem` renders it:
     # the guaranteed error shape behind the 400, 404, and 500 responses.
+    # `type`, `title`, and `status` are rendered unconditionally; the
+    # remaining keys are emitted only when set.
     PROBLEM_DEFINITION = JSON.parse(<<-JSON).as_h
       {
         "type": "object",
+        "required": ["type", "title", "status"],
         "properties": {
           "type": { "type": "string" },
           "title": { "type": "string" },

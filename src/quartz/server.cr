@@ -4,6 +4,11 @@ module Quartz
   # OpenAPI document configuration: the title and version reported in
   # the document's `info` section, and the path the document is served
   # at.
+  #
+  # The path is read when the application is built, the title and
+  # version per request, so any change must go through `Quartz.configure`
+  # to take effect: mutating `Quartz.config.openapi` directly leaves the
+  # memoized application serving the old path.
   class OpenAPIConfig
     property title : String = "Quartz API"
     property version : String = "1.0.0"
