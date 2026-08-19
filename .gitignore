@@ -3,3 +3,4 @@
 /bin/
 /.shards/
 *.dwarf
+spec/fixtures/openapi/*.actual.json

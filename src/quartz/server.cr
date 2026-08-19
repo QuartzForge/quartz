@@ -1,6 +1,15 @@
 require "http/server"
 
 module Quartz
+  # OpenAPI document configuration: the title and version reported in
+  # the document's `info` section, and the path the document is served
+  # at.
+  class OpenAPIConfig
+    property title : String = "Quartz API"
+    property version : String = "1.0.0"
+    property path : String = "/openapi.json"
+  end
+
   # Runtime server configuration, tuned through `Quartz.configure` before
   # the application is built.
   class Config
@@ -9,6 +18,7 @@ module Quartz
     property middlewares : Array(Quartz::Middleware) = [] of Quartz::Middleware
     property cors_origins : Array(String) = ["*"]
     property request_timeout : Time::Span = 30.seconds
+    getter openapi : OpenAPIConfig = OpenAPIConfig.new
   end
 
   @@config = Quartz::Config.new
@@ -26,11 +36,35 @@ module Quartz
     @@application = nil
   end
 
-  # The application wired to the collected routes and the canonical
-  # pipeline, memoized until `configure` runs again.
+  # The route serving the OpenAPI document at `config.openapi.path`.
+  # The document is built at request time, so reconfiguring the title or
+  # version is reflected without a rebuild. The route is appended to the
+  # collected routes, never collected itself, so the document only ever
+  # describes application routes.
+  def self.openapi_route : Quartz::RouteDef
+    Quartz::RouteDef.new(
+      verb: "GET",
+      path: @@config.openapi.path,
+      params: [] of Quartz::ParamDef,
+      status: 200,
+      operation_id: "quartz.openapi",
+      action: ->(_ctx : Quartz::Context, _bound : Quartz::Bound) {
+        Quartz::Response.json(
+          Quartz::OpenAPI::Builder.build(
+            Quartz::ROUTES,
+            Quartz::OpenAPI::Info.new(@@config.openapi.title, @@config.openapi.version),
+          ).to_json
+        )
+      },
+    )
+  end
+
+  # The application wired to the collected routes, the embedded OpenAPI
+  # route, and the canonical pipeline, memoized until `configure` runs
+  # again.
   def self.application : Quartz::Application
     @@application ||= Quartz::Application.new(
-      Quartz::Router.new(Quartz::ROUTES),
+      Quartz::Router.new(Quartz::ROUTES + [openapi_route]),
       build_pipeline,
     )
   end
