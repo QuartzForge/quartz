@@ -37,6 +37,7 @@ describe Quartz::Middleware::ErrorHandler do
     response = handled_client(Exception.new("senha do banco no stack trace")).get("/boom")
 
     response.status.should eq(500)
+    response.json["type"].should eq("https://quartzforge.org/errors/internal")
     response.body.should_not contain("senha do banco")
     response.json["detail"].should eq("An unexpected error occurred")
   end

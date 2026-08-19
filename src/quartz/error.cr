@@ -27,28 +27,28 @@ module Quartz
   # 400 Bad Request — the request is malformed or its input invalid.
   class BadRequest < HTTPError
     def initialize(detail : String? = nil)
-      super(400, "https://quartz.dev/errors/bad-request", "Bad Request", detail)
+      super(400, "https://quartzforge.org/errors/bad-request", "Bad Request", detail)
     end
   end
 
   # 401 Unauthorized — the client is not authenticated.
   class Unauthorized < HTTPError
     def initialize(detail : String? = nil)
-      super(401, "https://quartz.dev/errors/unauthorized", "Unauthorized", detail)
+      super(401, "https://quartzforge.org/errors/unauthorized", "Unauthorized", detail)
     end
   end
 
   # 403 Forbidden — the client is authenticated but not allowed.
   class Forbidden < HTTPError
     def initialize(detail : String? = nil)
-      super(403, "https://quartz.dev/errors/forbidden", "Forbidden", detail)
+      super(403, "https://quartzforge.org/errors/forbidden", "Forbidden", detail)
     end
   end
 
   # 404 Not Found — the requested resource does not exist.
   class NotFound < HTTPError
     def initialize(detail : String? = nil)
-      super(404, "https://quartz.dev/errors/not-found", "Not Found", detail)
+      super(404, "https://quartzforge.org/errors/not-found", "Not Found", detail)
     end
   end
 
@@ -56,7 +56,7 @@ module Quartz
   # resource.
   class Conflict < HTTPError
     def initialize(detail : String? = nil)
-      super(409, "https://quartz.dev/errors/conflict", "Conflict", detail)
+      super(409, "https://quartzforge.org/errors/conflict", "Conflict", detail)
     end
   end
 
@@ -64,7 +64,7 @@ module Quartz
   # processed as given.
   class UnprocessableEntity < HTTPError
     def initialize(detail : String? = nil)
-      super(422, "https://quartz.dev/errors/unprocessable-entity", "Unprocessable Entity", detail)
+      super(422, "https://quartzforge.org/errors/unprocessable-entity", "Unprocessable Entity", detail)
     end
   end
 end

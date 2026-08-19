@@ -35,6 +35,7 @@ describe Quartz::Middleware::Timeout do
     response = client.get("/slow")
 
     response.status.should eq(504)
+    response.json["type"].should eq("https://quartzforge.org/errors/timeout")
     response.body.should contain("Request exceeded 20ms")
   end
 

@@ -31,6 +31,7 @@ describe Quartz::Problem do
     )
 
     body["status"].should eq(400)
+    body["type"].should eq("https://quartzforge.org/errors/bind-error")
     body["title"].should eq("Invalid request parameters")
     body["detail"].should eq("2 parameters failed validation")
     body["errors"].as_a.size.should eq(2)
@@ -49,7 +50,7 @@ describe Quartz::Problem do
 
     bare = JSON.parse(
       Quartz::Problem.new(
-        type: "https://quartz.dev/errors/bad-request",
+        type: "https://quartzforge.org/errors/bad-request",
         title: "Bad Request",
         status: 400,
       ).to_response.body
