@@ -16,6 +16,8 @@ module Quartz
   # in onion order: the first in the list enters the request first and
   # leaves the response last.
   class Pipeline
+    getter middlewares : Array(Quartz::Middleware)
+
     def initialize(@middlewares : Array(Quartz::Middleware))
     end
 

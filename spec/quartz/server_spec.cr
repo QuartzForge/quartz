@@ -29,6 +29,22 @@ describe Quartz::Server do
 end
 
 describe Quartz do
+  # These examples mutate the global config; snapshot host and port and
+  # restore them afterwards so later spec files read pristine values.
+  # Restoring through `configure` also drops the memoized application,
+  # so each example starts from a pipeline built with default config.
+  around_each do |spec|
+    host = Quartz.config.host
+    port = Quartz.config.port
+
+    spec.run
+
+    Quartz.configure do |config|
+      config.host = host
+      config.port = port
+    end
+  end
+
   it "builds the canonical pipeline and a handler usable by the stdlib server" do
     Quartz.configure do |config|
       config.host = "127.0.0.1"
@@ -37,5 +53,26 @@ describe Quartz do
 
     Quartz.application.pipeline.should be_a(Quartz::Pipeline)
     Quartz.handler.should be_a(HTTP::Handler)
+  end
+
+  it "pins the canonical middleware order" do
+    Quartz.application.pipeline.middlewares.map(&.class).should eq([
+      Quartz::Middleware::RequestId,
+      Quartz::Middleware::Logger,
+      Quartz::Middleware::CORS,
+      Quartz::Middleware::ErrorHandler,
+      Quartz::Middleware::Timeout,
+    ])
+  end
+
+  it "serves error responses with CORS headers through the canonical pipeline" do
+    request = Quartz::Request.new(method: "GET", path: "/no-such-route")
+    request.headers["origin"] = "https://example.test"
+
+    response = Quartz.application.handle(request)
+
+    response.status.should eq(404)
+    response.headers["content-type"].should eq("application/problem+json")
+    response.headers["access-control-allow-origin"].should eq("*")
   end
 end
