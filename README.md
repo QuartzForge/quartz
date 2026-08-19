@@ -123,6 +123,47 @@ default).
 changes must go through `Quartz.configure` — it drops the memoized
 application so the next request is built from the new values.
 
+## Dependencies
+
+`@[Quartz::Service]` registers a class with the compile-time container,
+which injects it into any controller or service that asks for it in
+`initialize`. Wiring is checked at compile time: a controller that asks
+for a class that was never registered does not compile, with an
+`undefined local variable or method` error naming the missing
+dependency.
+
+Only annotated services can be injected directly. Anything external — a
+database handle, an HTTP client, a configuration object read from the
+environment — is not annotated, so it cannot be injected. Wrap it in a
+small annotated provider that constructs it, and inject the provider:
+
+```crystal
+@[Quartz::Service]
+class Db
+  getter handle : DB::Database
+
+  def initialize
+    @handle = DB.open(ENV.fetch("DATABASE_URL", "postgres://localhost/quartz"))
+  end
+end
+
+@[Quartz::Service]
+class PostRepo
+  def initialize(@db : Db)
+  end
+
+  def latest : Post
+    @db.handle.query_one("SELECT ...", as: Post)
+  end
+end
+```
+
+`PostRepo` takes `Db`, not `DB::Database` — the container only knows the
+types it registered, so injecting the raw handle directly would not
+compile. The provider behaves like any other service: one shared
+instance per process, and its own constructor arguments are resolved
+from the same container.
+
 ## How arguments become request parameters
 
 The binder reads one value per argument, and the argument's name and
@@ -239,11 +280,12 @@ responses. The document is served at `config.openapi.path` (default
 version is reflected immediately. The spec suite pins the document to a
 golden file and asserts conformance to the 3.1 structure.
 
-One honest caveat: a parameter or body of a user-defined type — the
-`Greeting` record above, for example — is referenced by name under
-`components/schemas` with an **empty placeholder schema** (`{}`). The
-references always resolve, but 0.1.0 has no hook to supply the real
-schema; expect that gap to close in a later version.
+One honest caveat: a request body of a user-defined type — the
+`CreateUserPayload` from the parameter examples above — is referenced
+by name under `components/schemas` with an **empty placeholder schema**
+(`{}`). The references always resolve, but 0.1.0 has no hook to supply
+the real schema; expect that gap to close in a later version. Return
+types get an inline empty schema on the success response instead.
 
 ## Configuration
 
@@ -268,7 +310,7 @@ stale values.
 
 ## Known limitations
 
-Quartz is honest about its edges. All three below are real; read them
+Quartz is honest about its edges. All four below are real; read them
 before you build on this version.
 
 **`Timeout` does not shed load.** Crystal cannot cancel a running fiber,
@@ -288,6 +330,13 @@ default argument.
 
 **A repeated query key binds only the first value.** `?tag=a&tag=b` yields
 `"a"`. No route can declare an array parameter in this version.
+
+**Method doc comments are not collected into the OpenAPI `summary`
+field.** The plumbing exists — every route and operation carries a
+`summary` — but the collector never populates it, so operations in the
+generated document have none. The field is optional in OpenAPI, so
+validators accept its absence; doc-comment collection is planned for a
+later version.
 
 ## Development
 
