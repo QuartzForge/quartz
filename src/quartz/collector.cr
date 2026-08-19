@@ -53,7 +53,9 @@ module Quartz
                 operation_id: {{ operation_id }},
                 params: [
                   {% for arg in method.args %}
-                    {% source = if path_segments.includes?(":" + arg.name.stringify)
+                    {% name = arg.name.stringify %}
+                    {% source = if path_segments.includes?(":" + name) ||
+                                   path_segments.includes?("*" + name)
                                   "Quartz::ParamSource::Path"
                                 elsif arg.name.stringify == "body"
                                   "Quartz::ParamSource::Body"

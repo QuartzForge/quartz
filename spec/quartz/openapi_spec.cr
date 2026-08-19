@@ -29,12 +29,26 @@ describe Quartz::OpenAPI::Builder do
   it "creates one path entry per route, grouping by verb" do
     paths = built_document.paths
 
-    paths.keys.sort!.should eq(["/users", "/users/{id}"])
+    paths.keys.sort!.should eq(["/files/{rest}", "/users", "/users/{id}"])
     paths["/users/{id}"].keys.sort!.should eq(["delete", "get"])
   end
 
   it "converts a Quartz :id path segment to OpenAPI {id}" do
     built_document.paths.keys.should contain("/users/{id}")
+  end
+
+  it "converts a Quartz *rest path segment to OpenAPI {rest}" do
+    built_document.paths.keys.should contain("/files/{rest}")
+  end
+
+  it "documents a wildcard param as a required path parameter" do
+    operation = built_document.paths["/files/{rest}"]["get"]
+    parameter = first_parameter(operation)
+
+    parameter.name.should eq("rest")
+    parameter.in.should eq("path")
+    parameter.required?.should be_true
+    parameter.schema["type"].should eq("string")
   end
 
   it "documents path and query params with the right schema" do

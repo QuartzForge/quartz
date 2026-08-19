@@ -54,10 +54,13 @@ module Quartz::OpenAPI
       Document.new(info: info, paths: paths, components: {"schemas" => schemas})
     end
 
-    # "/users/:id" -> "/users/{id}"
+    # "/users/:id" and "/files/*rest" -> "/users/{id}" and "/files/{rest}"
     def self.to_openapi_path(path : String) : String
       path.split('/').map do |segment|
-        segment.starts_with?(':') ? "{#{segment[1..]}}" : segment
+        case segment[0]?
+        when ':', '*' then "{#{segment[1..]}}"
+        else               segment
+        end
       end.join('/')
     end
 

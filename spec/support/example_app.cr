@@ -41,3 +41,11 @@ class ExampleController
   def destroy(id : Int64) : Nil
   end
 end
+
+@[Quartz::Controller(prefix: "/files")]
+class FilesController
+  @[Quartz::Get("/*rest")]
+  def download(rest : String) : String
+    "downloading:#{rest}"
+  end
+end

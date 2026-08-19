@@ -2,11 +2,11 @@ require "../spec_helper"
 
 describe "Quartz::ROUTES" do
   it "collects one route per annotated method" do
-    Quartz::ROUTES.size.should eq(4)
+    Quartz::ROUTES.size.should eq(5)
   end
 
   it "joins the controller prefix with the method path" do
-    Quartz::ROUTES.map(&.path).sort!.should eq(["/users", "/users", "/users/:id", "/users/:id"])
+    Quartz::ROUTES.map(&.path).sort!.should eq(["/files/*rest", "/users", "/users", "/users/:id", "/users/:id"])
   end
 
   it "normalizes a root method path without a double slash" do
@@ -14,7 +14,7 @@ describe "Quartz::ROUTES" do
   end
 
   it "records the verb of each annotation" do
-    Quartz::ROUTES.map(&.verb).sort!.should eq(["DELETE", "GET", "GET", "POST"])
+    Quartz::ROUTES.map(&.verb).sort!.should eq(["DELETE", "GET", "GET", "GET", "POST"])
   end
 
   it "honors the status declared in the annotation" do
@@ -34,6 +34,14 @@ describe "Quartz::ROUTES" do
     route.params.first.name.should eq("page")
     route.params.first.source.should eq(Quartz::ParamSource::Query)
     route.params.first.required?.should be_false
+  end
+
+  it "classifies a wildcard param as :path" do
+    route = Quartz::ROUTES.find! { |item| item.path == "/files/*rest" }
+
+    route.params.first.source.should eq(Quartz::ParamSource::Path)
+    route.params.first.required?.should be_true
+    route.params.first.type_name.should eq("String")
   end
 
   it "classifies an argument named body as :body" do
@@ -76,5 +84,12 @@ describe "collected routes, end to end" do
 
     response.status.should eq(204)
     response.body.should be_empty
+  end
+
+  it "serves a GET with a wildcard capturing the rest of the path" do
+    response = test_client_for(Quartz::ROUTES).get("/files/a/b/c.txt")
+
+    response.status.should eq(200)
+    response.json.should eq("downloading:a/b/c.txt")
   end
 end
