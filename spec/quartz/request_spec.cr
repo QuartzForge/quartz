@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 describe Quartz::Request do
-  it "expõe query params parseados" do
+  it "exposes parsed query parameters" do
     request = Quartz::Request.new(
       method: "GET",
       path: "/users",
@@ -12,7 +12,7 @@ describe Quartz::Request do
     request.query["per_page"].should eq("50")
   end
 
-  it "trata corpo ausente como nil" do
+  it "treats a missing body as nil" do
     Quartz::Request.new(method: "GET", path: "/users").body.should be_nil
   end
 end
