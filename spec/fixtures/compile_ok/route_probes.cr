@@ -39,6 +39,14 @@ class SegmentProbeController
   end
 end
 
+@[Quartz::Controller]
+class RaisingController
+  @[Quartz::Get("/conflict")]
+  def conflict : String
+    raise Quartz::Conflict.new("email taken")
+  end
+end
+
 app = Quartz::Application.new(
   Quartz::Router.new(Quartz::ROUTES),
   Quartz::Pipeline.new([] of Quartz::Middleware),
@@ -58,7 +66,7 @@ def dispatch(app : Quartz::Application, method : String, path : String, headers 
 end
 
 paths = Quartz::ROUTES.map(&.path).sort
-raise "expected normalized paths, got #{paths}" unless paths == ["/greet", "/hello", "/ping", "/u/:identifier", "/welcome/home"]
+raise "expected normalized paths, got #{paths}" unless paths == ["/conflict", "/greet", "/hello", "/ping", "/u/:identifier", "/welcome/home"]
 
 ping = Quartz::ROUTES.find { |r| r.path == "/ping" }.not_nil!
 raise "expected a parameterless route to collect no params" unless ping.params.empty?
@@ -86,3 +94,16 @@ raise "expected a param merely containing a placeholder name to classify as a qu
 
 segment = dispatch(app, "GET", "/u/42?id=DAQUERY")
 raise "expected the query value to reach the method, got #{segment.body}" unless segment.body == %("ident=42 id=DAQUERY")
+
+# A controller method that always raises must propagate its own exception
+# through the generated action: the compiler replaces an expanded proc
+# literal whose body is an untyped NoReturn expression with a runtime
+# raise, which would otherwise turn this Conflict into a generic 500.
+conflict = begin
+  dispatch(app, "GET", "/conflict")
+  nil
+rescue ex : Exception
+  ex
+end
+raise "expected Quartz::Conflict to propagate, got #{conflict.class}: #{conflict}" unless conflict.is_a?(Quartz::Conflict)
+raise "expected the controller's message, got #{conflict.message}" unless conflict.message == "email taken"

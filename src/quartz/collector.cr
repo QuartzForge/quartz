@@ -75,7 +75,13 @@ module Quartz
                     ),
                   {% end %}
                 ] of Quartz::ParamDef,
-                action: ->(ctx : Quartz::Context, bound : Quartz::Bound) {
+                action: ->(ctx : Quartz::Context, bound : Quartz::Bound) : Quartz::Response {
+                  # The cast keeps the proc body's static type non-NoReturn:
+                  # the compiler's cleanup pass replaces an expanded proc
+                  # literal whose body is an untyped NoReturn expression
+                  # with a runtime raise, which would turn every exception
+                  # a controller raises into a generic 500 instead of the
+                  # error the framework's own handler would render.
                   Quartz::Serializer.call(
                     Quartz.container.{{ type.name.gsub(/::/, "_").underscore.id }}.{{ method.name }}(
                       {% for arg in method.args %}
@@ -91,7 +97,7 @@ module Quartz
                       {% end %}
                     ),
                     {{ status }},
-                  )
+                  ).as(Quartz::Response)
                 },
               ),
             {% end %}
