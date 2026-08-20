@@ -47,6 +47,14 @@ class RaisingController
   end
 end
 
+@[Quartz::Module(controllers: [ProbeController, WelcomeController, SegmentProbeController, RaisingController])]
+class ProbeModule
+end
+
+class Quartz::Bootstrap
+  ROOT = ProbeModule
+end
+
 app = Quartz::Application.new(
   Quartz::Router.new(Quartz::ROUTES),
   Quartz::Pipeline.new([] of Quartz::Middleware),

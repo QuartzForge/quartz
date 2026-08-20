@@ -8,6 +8,12 @@ module Quartz
   # scope: a `finished` expansion that reopens `module Quartz` makes the
   # compiler re-visit its body, where deferred constant lookups fail.
   macro finished
+    {% if Quartz::Bootstrap.has_constant?("ROOT") %}
+      {% root = Quartz::Bootstrap::ROOT.resolve %}
+    {% else %}
+      {% raise "Quartz.run(AppModule) is required: no root module" %}
+    {% end %}
+
     {% operation_ids = [] of Nil %}
 
     ROUTES = [

@@ -13,3 +13,11 @@ class CycleB
   def initialize(@a : CycleA)
   end
 end
+
+@[Quartz::Module]
+class FixtureModule
+end
+
+class Quartz::Bootstrap
+  ROOT = FixtureModule
+end

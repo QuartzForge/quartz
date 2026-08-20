@@ -12,3 +12,11 @@ end
 @[Quartz::Service]
 class AppUserRepo
 end
+
+@[Quartz::Module]
+class FixtureModule
+end
+
+class Quartz::Bootstrap
+  ROOT = FixtureModule
+end

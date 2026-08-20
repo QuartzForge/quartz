@@ -59,3 +59,11 @@ class FilesController
     "downloading:#{rest}"
   end
 end
+
+@[Quartz::Module(controllers: [ExampleController, FilesController])]
+class SpecModule
+end
+
+class Quartz::Bootstrap
+  ROOT = SpecModule
+end
