@@ -104,6 +104,10 @@ module Quartz
   # Binds the handler to the configured host and port and serves requests
   # until the process is interrupted.
   def self.run_app : Nil
+    Quartz::RouteTable.lines(Quartz::ROUTES, Quartz::MODULES).each do |line|
+      Log.for("quartz").info { line }
+    end
+
     server = HTTP::Server.new([handler])
     address = server.bind_tcp(@@config.host, @@config.port)
 
