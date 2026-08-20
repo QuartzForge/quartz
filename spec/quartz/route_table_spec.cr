@@ -47,4 +47,38 @@ describe Quartz::RouteTable do
       "route GET /mystery → MysteryController.x (?)",
     ])
   end
+
+  it "reports the effective path under a configured prefix" do
+    routes = [
+      Quartz::RouteDef.new(
+        verb: "GET",
+        path: "/users",
+        params: [] of Quartz::ParamDef,
+        status: 200,
+        operation_id: "UsersController.index",
+        action: ->(_ctx : Quartz::Context, _bound : Quartz::Bound) { Quartz::Response.new(200) },
+      ),
+    ]
+
+    Quartz::RouteTable.lines(routes, [] of Quartz::ModuleInfo, "/api/v1").should eq([
+      "route GET /api/v1/users → UsersController.index (?)",
+    ])
+  end
+
+  it "renders a root route under a prefix without a double slash" do
+    routes = [
+      Quartz::RouteDef.new(
+        verb: "GET",
+        path: "/",
+        params: [] of Quartz::ParamDef,
+        status: 200,
+        operation_id: "HomeController.index",
+        action: ->(_ctx : Quartz::Context, _bound : Quartz::Bound) { Quartz::Response.new(200) },
+      ),
+    ]
+
+    Quartz::RouteTable.lines(routes, [] of Quartz::ModuleInfo, "/api/v1").should eq([
+      "route GET /api/v1 → HomeController.index (?)",
+    ])
+  end
 end
