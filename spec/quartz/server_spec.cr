@@ -41,6 +41,7 @@ describe Quartz do
     middlewares = Quartz.config.middlewares
     cors_origins = Quartz.config.cors_origins
     request_timeout = Quartz.config.request_timeout
+    path_prefix = Quartz.config.path_prefix
     openapi_title = Quartz.config.openapi.title
     openapi_version = Quartz.config.openapi.version
     openapi_path = Quartz.config.openapi.path
@@ -53,6 +54,7 @@ describe Quartz do
       config.middlewares = middlewares
       config.cors_origins = cors_origins
       config.request_timeout = request_timeout
+      config.path_prefix = path_prefix
       config.openapi.title = openapi_title
       config.openapi.version = openapi_version
       config.openapi.path = openapi_path
@@ -88,5 +90,36 @@ describe Quartz do
     response.status.should eq(404)
     response.headers["content-type"].should eq("application/problem+json")
     response.headers["access-control-allow-origin"].should eq("*")
+  end
+
+  it "serves every route under the configured path prefix" do
+    Quartz.configure(&.path_prefix=("/api/v1"))
+
+    response = Quartz.application.handle(
+      Quartz::Request.new(method: "GET", path: "/api/v1/users/1")
+    )
+
+    response.status.should eq(200)
+  end
+
+  it "refuses requests outside the configured prefix" do
+    Quartz.configure(&.path_prefix=("/api/v1"))
+
+    response = Quartz.application.handle(
+      Quartz::Request.new(method: "GET", path: "/users/1")
+    )
+
+    response.status.should eq(404)
+  end
+
+  it "serves the openapi document under the configured prefix" do
+    Quartz.configure(&.path_prefix=("/api/v1"))
+
+    response = Quartz.application.handle(
+      Quartz::Request.new(method: "GET", path: "/api/v1/openapi.json")
+    )
+
+    response.status.should eq(200)
+    response.json["openapi"].should eq("3.1.0")
   end
 end

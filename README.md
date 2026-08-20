@@ -15,20 +15,21 @@ else comes from the stdlib and the ecosystem.
 
 Quartz is an API framework, not a full-stack framework. It ships no
 templates, no asset pipeline, and no ORM, and it does not plan to. The
-pieces around it are separate projects, and — to be clear — **none of them
-exist yet**:
+pieces around it are separate projects:
 
-| Project | Role |
-|---|---|
-| Obsidian | ORM |
-| Facet | validation |
-| Forge | migrations |
-| Pulse | background jobs |
-| Vault | authentication |
-| Gem | templates |
+| Project | Role | Status |
+|---|---|---|
+| Facet | validation | released |
+| Obsidian | ORM | planned |
+| Forge | migrations | planned |
+| Pulse | background jobs | planned |
+| Vault | authentication | planned |
+| Gem | templates | planned |
 
-Treat them as planned, not available. Today Quartz composes with the
-standard library and with plain Crystal code: `HTTP::CompressHandler`,
+Only Facet (0.1.0) exists today. The others are planned, not available —
+nothing in the list above is a dependency of Quartz, and Quartz works
+fine without any of them. Today Quartz composes with the standard library
+and with plain Crystal code: `HTTP::CompressHandler`,
 `HTTP::StaticFileHandler`, and your own `HTTP::Handler`s run outside the
 framework.
 
@@ -82,12 +83,18 @@ class GreetingsController
   end
 end
 
+@[Quartz::Module(controllers: [GreetingsController])]
+class GreetingsModule; end
+
+@[Quartz::Module(imports: [GreetingsModule])]
+class AppModule; end
+
 Quartz.configure do |config|
   config.port = 3000
   config.openapi.title = "Hello API"
 end
 
-Quartz.run
+Quartz.run(AppModule)
 ```
 
 Build it and run it:
@@ -118,6 +125,14 @@ controller's `initialize` — and if a controller asks for a service that is
 not registered, **the program does not compile**. The route's return value
 is serialized to JSON with the status the annotation declared (200 by
 default).
+
+The controllers are grouped into modules. `@[Quartz::Module(controllers:
+[GreetingsController])]` makes `GreetingsModule` own
+`GreetingsController`, and `AppModule` imports `GreetingsModule`.
+`Quartz.run(AppModule)` captures the root module at compile time and
+composes the application from its import graph: the collector walks the
+graph, collects the routes of every reachable module, and wires them into
+the app.
 
 `Quartz.configure` tunes the server before `Quartz.run` starts it. Config
 changes must go through `Quartz.configure` — it drops the memoized
@@ -163,6 +178,125 @@ types it registered, so injecting the raw handle directly would not
 compile. The provider behaves like any other service: one shared
 instance per process, and its own constructor arguments are resolved
 from the same container.
+
+## Modules
+
+A module is a feature boundary: a plain class annotated with
+`@[Quartz::Module]` that names the controllers it owns and the other
+modules it composes.
+
+```crystal
+@[Quartz::Module(
+  imports: [...],      # the modules this one composes
+  controllers: [...],  # the controllers it owns
+  providers: [...],    # the services it depends on, checked at compile time
+)]
+class FeatureModule; end
+```
+
+### The module graph
+
+The root module — the one passed to `Quartz.run` — composes the whole
+application. The collector walks its import graph, and every reachable
+module contributes its controllers to the route table:
+
+```text
+AppModule (passed to Quartz.run)
+├── imports GreetingsModule
+│   └── controllers: GreetingsController
+└── imports UsersModule
+    └── controllers: UsersController
+```
+
+The mount order is deterministic: modules contribute their routes in
+graph order, the root first and then each import in declaration order,
+so the boot log lists the same sequence on every run.
+
+Business modules do not import each other — only the root composes. A
+feature module owns its controllers and depends on services; wiring the
+features together is the root module's only job.
+
+### Membership
+
+Every controller must be listed in **exactly one reachable module**. A
+controller listed nowhere fails the build as an orphan; one listed in
+two modules is collected twice, which fails the build as a duplicate
+operation id. Controllers that do not warrant a feature module of their
+own can live directly on the root module.
+
+Services stay global. `@[Quartz::Service]` registers into a single
+container shared by every module — a module does not restrict what its
+controllers can inject. The module graph governs which routes exist, not
+which services exist.
+
+`providers:` is documentation that the compiler validates. Every entry
+must be a `@[Quartz::Service]` class — listing a service does not
+register it (the annotation does), but it documents what the module
+depends on, and a wrong entry is a compile error instead of a surprise
+at runtime.
+
+### No exports
+
+There is deliberately no `exports:` entry. The container is global by
+design: every service is visible to every controller. Strict visibility
+was considered and left out — an `exports:` entry would narrow nothing
+but the set of valid listings, which is dead API. The module boundary
+organizes routes and documents dependencies; it does not hide services.
+
+### Wiring errors
+
+Wiring mistakes fail the build, each with a message naming the type and
+what it is missing — the fix is the line the message points at:
+
+| Mistake | Compile error |
+|---|---|
+| No `Quartz.run` call | `Quartz.run(AppModule) is required: no root module` |
+| Root not annotated as a module | `Quartz.run expects a module annotated with @[Quartz::Module], got AppModule` |
+| An `imports` entry that is not a module | `imports must be modules: UserRepo is not annotated with @[Quartz::Module]` |
+| Two modules importing each other | `import cycle detected among modules: UsersModule, AuthModule` |
+| A module nothing imports | `module UsersModule is not reachable from root module AppModule` |
+| A controller listed in no module | `controller UsersController is not listed in any module` |
+| A `controllers` entry that is not a controller | `controller UserRepo is not a controller: not annotated with @[Quartz::Controller]` |
+| A `providers` entry that is not a service | `provider UserRepo is not a service: not annotated with @[Quartz::Service]` |
+
+### Boot log
+
+At boot, `Quartz.run` logs one line per route, naming the module that
+owns it, followed by the address the server bound:
+
+```text
+route GET /greetings/:name → GreetingsController.show (GreetingsModule)
+route GET /users/:id → UsersController.show (UsersModule)
+listening on http://0.0.0.0:3000
+```
+
+The parenthesized name is the module whose `controllers:` entry lists
+the route's controller. The table prints once at startup — one INFO line
+per route, on stdout, before the server binds — so a fresh developer
+can see every route the app actually serves.
+
+## Migrating from 0.1
+
+Version 1.0.0 requires the module system, and 0.1 code does not compile
+until it is in place. The migration is three steps, and the compiler
+guides it — each error names the missing piece:
+
+1. **Create the root module.** Declare `@[Quartz::Module] class
+   AppModule; end` with an `imports:` list naming your feature modules.
+   A module with an empty list is fine if you would rather start from
+   the root.
+2. **List each controller in a module.** Put every
+   `@[Quartz::Controller]` class in exactly one module's `controllers:`
+   entry — its own feature module, or the root if the feature does not
+   warrant one.
+3. **Pass the root to `Quartz.run`.** `Quartz.run` becomes
+   `Quartz.run(AppModule)`.
+
+Nothing else changes. `@[Quartz::Service]` registration and injection,
+the path prefix, middlewares, `Quartz.configure`, the RFC 9457 errors,
+and the OpenAPI document all work exactly as in 0.1 — a successful
+migration touches only the three lines above. If something else fails to
+compile, the error is one of the wiring errors in the previous section.
 
 ## How arguments become request parameters
 
@@ -283,7 +417,7 @@ golden file and asserts conformance to the 3.1 structure.
 One honest caveat: a request body of a user-defined type — the
 `CreateUserPayload` from the parameter examples above — is referenced
 by name under `components/schemas` with an **empty placeholder schema**
-(`{}`). The references always resolve, but 0.1.0 has no hook to supply
+(`{}`). The references always resolve, but 1.0.0 has no hook to supply
 the real schema; expect that gap to close in a later version. Return
 types get an inline empty schema on the success response instead.
 
@@ -293,6 +427,7 @@ types get an inline empty schema on the success response instead.
 Quartz.configure do |config|
   config.host = "127.0.0.1"
   config.port = 3000
+  config.path_prefix = "/api/v1"
   config.cors_origins = ["https://app.example.com"]
   config.request_timeout = 5.seconds
   config.middlewares = [MyMiddleware.new]
@@ -303,10 +438,27 @@ end
 ```
 
 Everything is optional; the defaults are host `0.0.0.0`, port `3000`,
-CORS open (`["*"]`), timeout 30 seconds, no user middlewares, and the
-OpenAPI settings above. Mutate config only through `Quartz.configure` —
-editing `Quartz.config` directly leaves a memoized application serving
-stale values.
+no path prefix (every route lives at its declared path), CORS open
+(`["*"]`), timeout 30 seconds, no user middlewares, and the OpenAPI
+settings above. Mutate config only through `Quartz.configure` — editing
+`Quartz.config` directly leaves a memoized application serving stale
+values.
+
+`path_prefix` mounts every route — application routes and the OpenAPI
+document — under a static prefix, and the OpenAPI document reports the
+prefixed paths:
+
+```crystal
+Quartz.configure do |config|
+  config.path_prefix = "/api/v1"
+end
+# GET /api/v1/users/:id  →  ExampleController#show
+# GET /api/v1/openapi.json → the document, whose paths start with /api/v1
+```
+
+The prefix must start with `/` and contain only static segments — a
+placeholder there would have no parameter to bind. Setting it invalid
+raises `Quartz::ConfigError` when the application is built.
 
 ## Known limitations
 

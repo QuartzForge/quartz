@@ -23,6 +23,7 @@ module Quartz
     property middlewares : Array(Quartz::Middleware) = [] of Quartz::Middleware
     property cors_origins : Array(String) = ["*"]
     property request_timeout : Time::Span = 30.seconds
+    property path_prefix : String = "/"
     getter openapi : OpenAPIConfig = OpenAPIConfig.new
   end
 
@@ -41,11 +42,12 @@ module Quartz
     @@application = nil
   end
 
-  # The route serving the OpenAPI document at `config.openapi.path`.
-  # The document is built at request time, so reconfiguring the title or
-  # version is reflected without a rebuild. The route is appended to the
-  # collected routes, never collected itself, so the document only ever
-  # describes application routes.
+  # The route serving the OpenAPI document at `config.openapi.path`,
+  # mounted under the configured path prefix like every other route.
+  # The document is built at request time, so reconfiguring the title
+  # or version is reflected without a rebuild. The route is appended to
+  # the collected routes, never collected itself, so the document only
+  # ever describes application routes.
   def self.openapi_route : Quartz::RouteDef
     Quartz::RouteDef.new(
       verb: "GET",
@@ -58,6 +60,7 @@ module Quartz
           Quartz::OpenAPI::Builder.build(
             Quartz::ROUTES,
             Quartz::OpenAPI::Info.new(@@config.openapi.title, @@config.openapi.version),
+            prefix: @@config.path_prefix,
           ).to_json
         )
       },
@@ -69,7 +72,7 @@ module Quartz
   # again.
   def self.application : Quartz::Application
     @@application ||= Quartz::Application.new(
-      Quartz::Router.new(Quartz::ROUTES + [openapi_route]),
+      Quartz::Router.new(Quartz::ROUTES + [openapi_route], prefix: @@config.path_prefix),
       build_pipeline,
     )
   end
@@ -81,9 +84,30 @@ module Quartz
     Quartz::Server.new(application)
   end
 
+  # Captures the root module at compile time so the collector can
+  # assemble the route graph, then starts the server with `run_app`.
+  # The root must be a class annotated with `@[Quartz::Module]`; anything
+  # else fails the build. Test harnesses that must not bind a socket
+  # declare `Quartz::Bootstrap::ROOT` directly instead of calling this.
+  macro run(klass)
+    {% t = klass.resolve %}
+    {% if t.annotation(Quartz::Module) %}
+      class Quartz::Bootstrap
+        ROOT = {{ klass }}
+      end
+    {% else %}
+      {% raise "Quartz.run expects a module annotated with @[Quartz::Module], got #{klass.id}" %}
+    {% end %}
+    Quartz.run_app
+  end
+
   # Binds the handler to the configured host and port and serves requests
   # until the process is interrupted.
-  def self.run : Nil
+  def self.run_app : Nil
+    Quartz::RouteTable.lines(Quartz::ROUTES, Quartz::MODULES, @@config.path_prefix).each do |line|
+      Log.for("quartz").info { line }
+    end
+
     server = HTTP::Server.new([handler])
     address = server.bind_tcp(@@config.host, @@config.port)
 

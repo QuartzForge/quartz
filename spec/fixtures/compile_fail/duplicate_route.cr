@@ -15,5 +15,13 @@ class DuplicateRoutesController
   end
 end
 
+@[Quartz::Module(controllers: [DuplicateRoutesController])]
+class FixtureModule
+end
+
+class Quartz::Bootstrap
+  ROOT = FixtureModule
+end
+
 # The conflict is only detected when the Router is built.
 Quartz::Router.new(Quartz::ROUTES)

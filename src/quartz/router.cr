@@ -2,6 +2,12 @@ module Quartz
   # A trie of registered routes that resolves a verb and path to a
   # route and its path parameters.
   #
+  # A path prefix mounts every route under it: `Router.new(routes,
+  # prefix: "/api/v1")` matches `/api/v1/...` only. The prefix is
+  # applied to the trie at construction time, so `route.path` and the
+  # OpenAPI document stay canonical and only the router knows the
+  # prefix exists.
+  #
   # Segment matching precedence at each depth is static, then named
   # param (`:id`), then wildcard (`*rest`). Ambiguous route tables
   # raise `ConfigError` at construction time: a verb and path declared
@@ -29,15 +35,28 @@ module Quartz
     end
 
     @root = Node.new
+    @prefix : String
 
-    def initialize(routes : Array(Quartz::RouteDef))
+    def initialize(routes : Array(Quartz::RouteDef), prefix : String = "/")
+      validate_prefix(prefix)
+      @prefix = prefix
       routes.each { |route| insert(route) }
+    end
+
+    # The prefix may only be static: a placeholder would have no
+    # `ParamDef` to bind its captured value, and a wildcard would blur
+    # where the router's own segments begin.
+    private def validate_prefix(prefix : String) : Nil
+      raise Quartz::ConfigError.new("path prefix must start with '/'") unless prefix.starts_with?('/')
+      if prefix.split('/').reject(&.empty?).any? { |segment| kind = segment[0]?; kind == ':' || kind == '*' }
+        raise Quartz::ConfigError.new("path prefix may only contain static segments")
+      end
     end
 
     # A route path may not repeat a placeholder name, since the later
     # occurrence could never bind its own value; and a wildcard must
     # be the last segment, since it captures everything after it.
-    private def check_placeholders(route : Quartz::RouteDef, segments : Array(String)) : Nil
+    private def check_placeholders(verb : String, path : String, segments : Array(String)) : Nil
       seen = Set(String).new
       segments.each_with_index do |segment, index|
         kind = segment[0]?
@@ -45,13 +64,13 @@ module Quartz
         name = segment[1..]
         if seen.includes?(name)
           raise Quartz::ConfigError.new(
-            "route conflict: #{route.verb} '#{route.path}' declares " \
+            "route conflict: #{verb} '#{path}' declares " \
             "'#{segment}' more than once"
           )
         end
         if kind == '*' && index != segments.size - 1
           raise Quartz::ConfigError.new(
-            "route conflict: #{route.verb} '#{route.path}' has " \
+            "route conflict: #{verb} '#{path}' has " \
             "segments after wildcard"
           )
         end
@@ -66,8 +85,9 @@ module Quartz
     end
 
     private def insert(route : Quartz::RouteDef) : Nil
-      segments = route.segments
-      check_placeholders(route, segments)
+      effective = Quartz.join_paths(@prefix, route.path)
+      segments = effective.split('/').reject(&.empty?)
+      check_placeholders(route.verb, effective, segments)
       node = @root
 
       segments.each do |segment|
@@ -77,7 +97,7 @@ module Quartz
           if existing = node.param_name
             unless existing == name
               raise Quartz::ConfigError.new(
-                "route conflict: #{route.verb} '#{route.path}' declares ':#{name}' " \
+                "route conflict: #{route.verb} '#{effective}' declares ':#{name}' " \
                 "where ':#{existing}' is already defined at the same position"
               )
             end
@@ -90,7 +110,7 @@ module Quartz
           if existing = node.wildcard_name
             unless existing == name
               raise Quartz::ConfigError.new(
-                "route conflict: #{route.verb} '#{route.path}' declares '*#{name}' " \
+                "route conflict: #{route.verb} '#{effective}' declares '*#{name}' " \
                 "where '*#{existing}' is already defined at the same position"
               )
             end
@@ -107,14 +127,14 @@ module Quartz
       if existing = node.leaves[route.verb]?
         route_is_wild = wildcard?(route)
         if route_is_wild != wildcard?(existing)
-          wildcard_route = route_is_wild ? route : existing
+          wildcard_path = Quartz.join_paths(@prefix, (route_is_wild ? route : existing).path)
           shadowed = route_is_wild ? existing : route
           raise Quartz::ConfigError.new(
-            "route conflict: #{route.verb} '#{shadowed.path}' is shadowed " \
-            "by wildcard '#{wildcard_route.path}'"
+            "route conflict: #{route.verb} '#{Quartz.join_paths(@prefix, shadowed.path)}' is shadowed " \
+            "by wildcard '#{wildcard_path}'"
           )
         end
-        raise Quartz::ConfigError.new("route conflict: #{route.verb} #{route.path}")
+        raise Quartz::ConfigError.new("route conflict: #{route.verb} #{effective}")
       end
       node.leaves[route.verb] = route
     end

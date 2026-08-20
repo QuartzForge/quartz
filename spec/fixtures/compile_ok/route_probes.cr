@@ -47,6 +47,22 @@ class RaisingController
   end
 end
 
+@[Quartz::Controller(prefix: "/tree")]
+class TreeProbeController
+  @[Quartz::Get("/:id/*rest")]
+  def show(id : Int64, rest : String) : String
+    "#{id}/#{rest}"
+  end
+end
+
+@[Quartz::Module(controllers: [ProbeController, WelcomeController, SegmentProbeController, RaisingController, TreeProbeController])]
+class ProbeModule
+end
+
+class Quartz::Bootstrap
+  ROOT = ProbeModule
+end
+
 app = Quartz::Application.new(
   Quartz::Router.new(Quartz::ROUTES),
   Quartz::Pipeline.new([] of Quartz::Middleware),
@@ -66,7 +82,7 @@ def dispatch(app : Quartz::Application, method : String, path : String, headers 
 end
 
 paths = Quartz::ROUTES.map(&.path).sort
-raise "expected normalized paths, got #{paths}" unless paths == ["/conflict", "/greet", "/hello", "/ping", "/u/:identifier", "/welcome/home"]
+raise "expected normalized paths, got #{paths}" unless paths == ["/conflict", "/greet", "/hello", "/ping", "/tree/:id/*rest", "/u/:identifier", "/welcome/home"]
 
 ping = Quartz::ROUTES.find { |r| r.path == "/ping" }.not_nil!
 raise "expected a parameterless route to collect no params" unless ping.params.empty?
@@ -107,3 +123,6 @@ rescue ex : Exception
 end
 raise "expected Quartz::Conflict to propagate, got #{conflict.class}: #{conflict}" unless conflict.is_a?(Quartz::Conflict)
 raise "expected the controller's message, got #{conflict.message}" unless conflict.message == "email taken"
+
+tree = dispatch(app, "GET", "/tree/7/a/b/c")
+raise "expected a param and a wildcard to coexist, got #{tree.body}" unless tree.body == %("7/a/b/c")

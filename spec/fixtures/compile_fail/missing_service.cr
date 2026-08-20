@@ -17,6 +17,14 @@ class NeedsMissingController
   end
 end
 
+@[Quartz::Module(controllers: [NeedsMissingController])]
+class FixtureModule
+end
+
+class Quartz::Bootstrap
+  ROOT = FixtureModule
+end
+
 # In a real application the collector resolves every controller at boot;
 # resolving this one must fail the build with a getter error.
 Quartz.container.needs_missing_controller

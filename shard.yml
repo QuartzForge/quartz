@@ -1,5 +1,5 @@
 name: quartz
-version: 0.1.1
+version: 1.0.0
 crystal: ~> 1.21
 license: MIT
 description: HTTP framework for robust APIs in Crystal

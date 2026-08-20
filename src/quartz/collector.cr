@@ -8,15 +8,112 @@ module Quartz
   # scope: a `finished` expansion that reopens `module Quartz` makes the
   # compiler re-visit its body, where deferred constant lookups fail.
   macro finished
+    {% if Quartz::Bootstrap.has_constant?("ROOT") %}
+      {% root = Quartz::Bootstrap::ROOT.resolve %}
+      {% unless root.annotation(Quartz::Module) %}
+        {% raise "Quartz.run expects a module annotated with @[Quartz::Module], got #{root.name}" %}
+      {% end %}
+    {% else %}
+      {% raise "Quartz.run(AppModule) is required: no root module" %}
+    {% end %}
+
+    {% all_mods = [] of Nil %}
+    {% for type in Object.all_subclasses %}
+      {% if type.annotation(Quartz::Module) %}{% all_mods << type %}{% end %}
+    {% end %}
+
+    # Imports must be modules: validate every edge while building the
+    # adjacency map, before any traversal can assume it.
+    {% imports_of = {} of Nil => Nil %}
+    {% for m in all_mods %}
+      {% ann = m.annotation(Quartz::Module) %}
+      {% imps = [] of Nil %}
+      {% for p in (ann[:imports] || [] of Nil) %}
+        {% imp = p.resolve %}
+        {% if imp.annotation(Quartz::Module) %}
+          {% imps << imp %}
+        {% else %}
+          {% raise "imports must be modules: #{imp.name} is not annotated with @[Quartz::Module]" %}
+        {% end %}
+      {% end %}
+      {% imports_of[m.name] = imps %}
+    {% end %}
+
+    # Module cycles are detected by draining the import graph with
+    # Kahn's algorithm, as N bounded passes (the macro language has no
+    # while); whatever never settles is in a cycle, named in the error.
+    {% settled = [] of Nil %}
+    {% for _pass in (0...all_mods.size) %}
+      {% for m in all_mods %}
+        {% unless settled.includes?(m) %}
+          {% pending = imports_of[m.name].reject { |i| settled.includes?(i) } %}
+          {% if pending.empty? %}{% settled << m %}{% end %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% unresolved = all_mods.reject { |mod| settled.includes?(mod) } %}
+    {% if unresolved.size > 0 %}
+      {% raise "import cycle detected among modules: #{unresolved.map(&.name).join(", ").id}" %}
+    {% end %}
+
+    # Everything annotated must be reachable from the root: an unimported
+    # module is a wiring mistake, not a dormant feature.
+    {% seen = [root] %}
+    {% for _pass in (0...all_mods.size + 1) %}
+      {% for m in seen %}
+        {% for imp in imports_of[m.name] %}
+          {% unless seen.includes?(imp) %}{% seen << imp %}{% end %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% unreachable = all_mods.reject { |mod| seen.includes?(mod) } %}
+    {% if unreachable.size > 0 %}
+      {% raise "module #{unreachable[0].name} is not reachable from root module #{root.name}" %}
+    {% end %}
+
+    # Controllers must be listed in exactly one reachable module, and
+    # every entry must carry the annotation it claims. Providers are
+    # documentation: listed entries must be services, nothing more.
+    {% listed = {} of Nil => Nil %}
+    {% entries = {} of Nil => Nil %}
+    {% for m in seen %}{% entries[m.name] = [] of Nil %}{% end %}
+    {% for m in seen %}
+      {% ann = m.annotation(Quartz::Module) %}
+      {% for p in (ann[:controllers] || [] of Nil) %}
+        {% c = p.resolve %}
+        {% if c.annotation(Quartz::Controller) %}
+          {% listed[c.name] = m %}
+          {% entries[m.name] << c %}
+        {% else %}
+          {% raise "controller #{c.name} is not a controller: not annotated with @[Quartz::Controller]" %}
+        {% end %}
+      {% end %}
+      {% for p in (ann[:providers] || [] of Nil) %}
+        {% pr = p.resolve %}
+        {% unless pr.annotation(Quartz::Service) %}
+          {% raise "provider #{pr.name} is not a service: not annotated with @[Quartz::Service]" %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% orphans = [] of Nil %}
+    {% for type in Object.all_subclasses %}
+      {% if type.annotation(Quartz::Controller) && !listed.has_key?(type.name) %}
+        {% orphans << type %}
+      {% end %}
+    {% end %}
+    {% if orphans.size > 0 %}
+      {% raise "controller #{orphans[0].name} is not listed in any module" %}
+    {% end %}
+
     {% operation_ids = [] of Nil %}
 
     ROUTES = [
-      {% for type in Object.all_subclasses %}
-        {% controller = type.annotation(Quartz::Controller) %}
-        {% if controller %}
+      {% for m in seen %}
+        {% for c in entries[m.name] %}
+          {% controller = c.annotation(Quartz::Controller) %}
           {% prefix = (controller[:prefix] || "").id.stringify %}
 
-          {% for method in type.methods %}
+          {% for method in c.methods %}
             {% verb = nil %}
             {% route = nil %}
             {% if found = method.annotation(Quartz::Get) %}
@@ -32,7 +129,7 @@ module Quartz
             {% end %}
 
             {% if verb %}
-              {% operation_id = "#{type.name}.#{method.name}" %}
+              {% operation_id = "#{c.name}.#{method.name}" %}
               {% if operation_ids.includes?(operation_id) %}
                 {% raise "duplicate operation id: #{operation_id} is emitted by more than one annotated method" %}
               {% end %}
@@ -89,7 +186,7 @@ module Quartz
                   # would surface as a generic 500 instead of the error the
                   # framework's own handler would render.
                   Quartz::Serializer.call(
-                    Quartz.container.{{ type.name.gsub(/::/, "_").underscore.id }}.{{ method.name }}(
+                    Quartz.container.{{ c.name.gsub(/::/, "_").underscore.id }}.{{ method.name }}(
                       {% for arg in method.args %}
                         {% if arg.name.stringify == "body" %}
                           {{ arg.name }}: ctx.body_as({{ arg.restriction }}),
@@ -111,5 +208,18 @@ module Quartz
         {% end %}
       {% end %}
     ] of Quartz::RouteDef
+
+    MODULES = [
+      {% for m in seen %}
+        Quartz::ModuleInfo.new(
+          "{{ m.name }}",
+          [
+            {% for c in entries[m.name] %}
+              "{{ c.name }}",
+            {% end %}
+          ] of String,
+        ),
+      {% end %}
+    ] of Quartz::ModuleInfo
   end
 end

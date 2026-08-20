@@ -27,4 +27,10 @@ module Quartz
 
   # Marks a method as a `DELETE` route.
   annotation Delete; end
+
+  # Groups controllers and providers into a feature boundary. The class
+  # is a plain carrier: imports, controllers and providers are read at
+  # compile time by the collector, and the app is composed from the root
+  # module passed to `Quartz.run`.
+  annotation Module; end
 end

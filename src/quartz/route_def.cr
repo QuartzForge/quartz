@@ -69,4 +69,13 @@ module Quartz
       @path.split('/').reject(&.empty?)
     end
   end
+
+  # Joins a path prefix and a path into a single path: collapses duplicate
+  # slashes and drops a trailing slash, keeping a bare `/`. The router and
+  # the OpenAPI builder use it to apply the configured `path_prefix`
+  # without touching the canonical route paths.
+  def self.join_paths(prefix : String, path : String) : String
+    joined = "#{prefix}/#{path}".gsub(/\/+/, "/")
+    joined.size > 1 && joined.ends_with?("/") ? joined[0..-2] : joined
+  end
 end

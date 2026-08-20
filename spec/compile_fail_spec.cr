@@ -55,4 +55,74 @@ describe "compile-time failures" do
     result[:output].should contain("duplicate operation id")
     result[:output].should contain("DuplicateOperationIdController.show")
   end
+
+  it "refuses a root module that is not annotated" do
+    result = compile("bad_root_module.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("Quartz.run expects a module annotated with @[Quartz::Module]")
+  end
+
+  it "refuses a hand-declared root that is not annotated" do
+    result = compile("bad_hand_declared_root.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("Quartz.run expects a module annotated with @[Quartz::Module]")
+  end
+
+  it "refuses a program without a root module" do
+    result = compile("no_root_module.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("Quartz.run(AppModule) is required")
+  end
+
+  it "refuses an import that is not a module" do
+    result = compile("bad_import.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("imports must be modules")
+    result[:output].should contain("NotAModule")
+  end
+
+  it "refuses an import cycle among modules, naming the participants" do
+    result = compile("import_cycle.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("import cycle")
+    result[:output].should contain("CycleModuleA")
+    result[:output].should contain("CycleModuleB")
+  end
+
+  it "refuses a module outside the reachable graph" do
+    result = compile("unreachable_module.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not reachable")
+    result[:output].should contain("OrphanModule")
+  end
+
+  it "refuses a controller that is not listed in any module" do
+    result = compile("orphan_controller.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not listed in any module")
+    result[:output].should contain("OrphanController")
+  end
+
+  it "refuses a non-controller listed in controllers" do
+    result = compile("bad_controller_entry.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not a controller")
+    result[:output].should contain("SomeService")
+  end
+
+  it "refuses a non-service listed in providers" do
+    result = compile("bad_provider_entry.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not a service")
+    result[:output].should contain("SomeController")
+  end
 end

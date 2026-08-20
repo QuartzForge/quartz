@@ -17,3 +17,11 @@ class DuplicateOperationIdController
     "b"
   end
 end
+
+@[Quartz::Module(controllers: [DuplicateOperationIdController])]
+class FixtureModule
+end
+
+class Quartz::Bootstrap
+  ROOT = FixtureModule
+end
