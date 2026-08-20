@@ -55,4 +55,11 @@ describe "compile-time failures" do
     result[:output].should contain("duplicate operation id")
     result[:output].should contain("DuplicateOperationIdController.show")
   end
+
+  it "refuses a root module that is not annotated" do
+    result = compile("bad_root_module.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("Quartz.run expects a module annotated with @[Quartz::Module]")
+  end
 end

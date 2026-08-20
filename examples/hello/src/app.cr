@@ -22,9 +22,15 @@ class GreetingsController
   end
 end
 
+@[Quartz::Module(controllers: [GreetingsController])]
+class GreetingsModule; end
+
+@[Quartz::Module(imports: [GreetingsModule])]
+class AppModule; end
+
 Quartz.configure do |config|
   config.port = 3000
   config.openapi.title = "Hello API"
 end
 
-Quartz.run
+Quartz.run(AppModule)

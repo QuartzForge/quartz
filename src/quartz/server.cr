@@ -84,9 +84,26 @@ module Quartz
     Quartz::Server.new(application)
   end
 
+  # Captures the root module at compile time so the collector can
+  # assemble the route graph, then starts the server with `run_app`.
+  # The root must be a class annotated with `@[Quartz::Module]`; anything
+  # else fails the build. Test harnesses that must not bind a socket
+  # declare `Quartz::Bootstrap::ROOT` directly instead of calling this.
+  macro run(klass)
+    {% t = klass.resolve %}
+    {% if t.annotation(Quartz::Module) %}
+      class Quartz::Bootstrap
+        ROOT = {{ klass }}
+      end
+    {% else %}
+      {% raise "Quartz.run expects a module annotated with @[Quartz::Module], got #{klass.id}" %}
+    {% end %}
+    Quartz.run_app
+  end
+
   # Binds the handler to the configured host and port and serves requests
   # until the process is interrupted.
-  def self.run : Nil
+  def self.run_app : Nil
     server = HTTP::Server.new([handler])
     address = server.bind_tcp(@@config.host, @@config.port)
 
