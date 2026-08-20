@@ -68,6 +68,30 @@ end
 class SpecModule
 end
 
+# Two services sharing a leaf name in different namespaces: the getter
+# name guard must not over-reject this legitimate pattern, and a
+# controller may depend on both at once.
+module App
+  @[Quartz::Service]
+  class UserRepo
+  end
+end
+
+module Admin
+  @[Quartz::Service]
+  class UserRepo
+  end
+end
+
+@[Quartz::Controller]
+class BothUserReposController
+  def initialize(@app_repo : App::UserRepo, @admin_repo : Admin::UserRepo)
+  end
+
+  getter app_repo : App::UserRepo
+  getter admin_repo : Admin::UserRepo
+end
+
 class Quartz::Bootstrap
   ROOT = SpecModule
 end
