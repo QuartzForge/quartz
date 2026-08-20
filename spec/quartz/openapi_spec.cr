@@ -33,6 +33,20 @@ describe Quartz::OpenAPI::Builder do
     paths["/users/{id}"].keys.sort!.should eq(["delete", "get", "patch", "put"])
   end
 
+  it "builds paths under the configured prefix" do
+    document = Quartz::OpenAPI::Builder.build(
+      Quartz::ROUTES,
+      Quartz::OpenAPI::Info.new(title: "Example API", version: "1.0.0"),
+      prefix: "/api/v1",
+    )
+
+    document.paths.keys.sort!.should eq([
+      "/api/v1/files/{rest}",
+      "/api/v1/users",
+      "/api/v1/users/{id}",
+    ])
+  end
+
   it "converts a Quartz :id path segment to OpenAPI {id}" do
     built_document.paths.keys.should contain("/users/{id}")
   end

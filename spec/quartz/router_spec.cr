@@ -118,6 +118,55 @@ describe Quartz::Router do
     router.match("GET", "/users/").should_not be_nil
   end
 
+  it "matches a route under the configured prefix" do
+    router = Quartz::Router.new([route("GET", "/health")], prefix: "/api/v1")
+
+    match = router.match("GET", "/api/v1/health").should_not be_nil
+    match.route.operation_id.should eq("get/health")
+    router.match("GET", "/health").should be_nil
+  end
+
+  it "extracts path params under a prefix" do
+    router = Quartz::Router.new([route("GET", "/users/:id")], prefix: "/api/v1")
+
+    match = router.match("GET", "/api/v1/users/42").should_not be_nil
+    match.path_params["id"].should eq("42")
+  end
+
+  it "matches a wildcard route under a prefix" do
+    router = Quartz::Router.new([route("GET", "/files/*rest")], prefix: "/api")
+
+    match = router.match("GET", "/api/files/a/b.txt").should_not be_nil
+    match.path_params["rest"].should eq("a/b.txt")
+  end
+
+  it "normalizes a trailing slash on the prefix" do
+    router = Quartz::Router.new([route("GET", "/health")], prefix: "/api/v1/")
+
+    router.match("GET", "/api/v1/health").should_not be_nil
+  end
+
+  it "refuses a prefix that does not start with a slash" do
+    expect_raises(Quartz::ConfigError, /start with/) do
+      Quartz::Router.new([route("GET", "/health")], prefix: "api/v1")
+    end
+  end
+
+  it "refuses a prefix with a placeholder segment" do
+    expect_raises(Quartz::ConfigError, /static segments/) do
+      Quartz::Router.new([route("GET", "/health")], prefix: "/api/:version")
+    end
+  end
+
+  it "reports conflicts with the effective prefixed path" do
+    expect_raises(Quartz::ConfigError, /route conflict: GET \/api\/v1\/users/) do
+      Quartz::Router.new(
+        [route("GET", "/users"), route("GET", "/users")],
+        prefix: "/api/v1",
+      )
+    end
+  end
+
   it "refuses two identical routes" do
     expect_raises(Quartz::ConfigError, /route conflict: GET \/users/) do
       Quartz::Router.new([route("GET", "/users"), route("GET", "/users")])

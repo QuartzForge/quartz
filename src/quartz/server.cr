@@ -23,6 +23,7 @@ module Quartz
     property middlewares : Array(Quartz::Middleware) = [] of Quartz::Middleware
     property cors_origins : Array(String) = ["*"]
     property request_timeout : Time::Span = 30.seconds
+    property path_prefix : String = "/"
     getter openapi : OpenAPIConfig = OpenAPIConfig.new
   end
 
@@ -41,11 +42,12 @@ module Quartz
     @@application = nil
   end
 
-  # The route serving the OpenAPI document at `config.openapi.path`.
-  # The document is built at request time, so reconfiguring the title or
-  # version is reflected without a rebuild. The route is appended to the
-  # collected routes, never collected itself, so the document only ever
-  # describes application routes.
+  # The route serving the OpenAPI document at `config.openapi.path`,
+  # mounted under the configured path prefix like every other route.
+  # The document is built at request time, so reconfiguring the title
+  # or version is reflected without a rebuild. The route is appended to
+  # the collected routes, never collected itself, so the document only
+  # ever describes application routes.
   def self.openapi_route : Quartz::RouteDef
     Quartz::RouteDef.new(
       verb: "GET",
@@ -58,6 +60,7 @@ module Quartz
           Quartz::OpenAPI::Builder.build(
             Quartz::ROUTES,
             Quartz::OpenAPI::Info.new(@@config.openapi.title, @@config.openapi.version),
+            prefix: @@config.path_prefix,
           ).to_json
         )
       },
@@ -69,7 +72,7 @@ module Quartz
   # again.
   def self.application : Quartz::Application
     @@application ||= Quartz::Application.new(
-      Quartz::Router.new(Quartz::ROUTES + [openapi_route]),
+      Quartz::Router.new(Quartz::ROUTES + [openapi_route], prefix: @@config.path_prefix),
       build_pipeline,
     )
   end

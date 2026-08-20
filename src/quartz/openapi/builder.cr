@@ -39,11 +39,15 @@ module Quartz::OpenAPI
       }
       JSON
 
-    def self.build(routes : Array(Quartz::RouteDef), info : Info) : Document
+    def self.build(
+      routes : Array(Quartz::RouteDef),
+      info : Info,
+      prefix : String = "/",
+    ) : Document
       paths = {} of String => Hash(String, Operation)
 
       routes.each do |route|
-        path = to_openapi_path(route.path)
+        path = to_openapi_path(Quartz.join_paths(prefix, route.path))
         paths[path] ||= {} of String => Operation
         paths[path][route.verb.downcase] = to_operation(route)
       end

@@ -293,6 +293,7 @@ types get an inline empty schema on the success response instead.
 Quartz.configure do |config|
   config.host = "127.0.0.1"
   config.port = 3000
+  config.path_prefix = "/api/v1"
   config.cors_origins = ["https://app.example.com"]
   config.request_timeout = 5.seconds
   config.middlewares = [MyMiddleware.new]
@@ -303,10 +304,27 @@ end
 ```
 
 Everything is optional; the defaults are host `0.0.0.0`, port `3000`,
-CORS open (`["*"]`), timeout 30 seconds, no user middlewares, and the
-OpenAPI settings above. Mutate config only through `Quartz.configure` —
-editing `Quartz.config` directly leaves a memoized application serving
-stale values.
+no path prefix (every route lives at its declared path), CORS open
+(`["*"]`), timeout 30 seconds, no user middlewares, and the OpenAPI
+settings above. Mutate config only through `Quartz.configure` — editing
+`Quartz.config` directly leaves a memoized application serving stale
+values.
+
+`path_prefix` mounts every route — application routes and the OpenAPI
+document — under a static prefix, and the OpenAPI document reports the
+prefixed paths:
+
+```crystal
+Quartz.configure do |config|
+  config.path_prefix = "/api/v1"
+end
+# GET /api/v1/users/:id  →  ExampleController#show
+# GET /api/v1/openapi.json → the document, whose paths start with /api/v1
+```
+
+The prefix must start with `/` and contain only static segments — a
+placeholder there would have no parameter to bind. Setting it invalid
+raises `Quartz::ConfigError` when the application is built.
 
 ## Known limitations
 
