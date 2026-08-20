@@ -14,6 +14,60 @@ module Quartz
       {% raise "Quartz.run(AppModule) is required: no root module" %}
     {% end %}
 
+    {% all_mods = [] of Nil %}
+    {% for type in Object.all_subclasses %}
+      {% if type.annotation(Quartz::Module) %}{% all_mods << type %}{% end %}
+    {% end %}
+
+    # Imports must be modules: validate every edge while building the
+    # adjacency map, before any traversal can assume it.
+    {% imports_of = {} of Nil => Nil %}
+    {% for m in all_mods %}
+      {% ann = m.annotation(Quartz::Module) %}
+      {% imps = [] of Nil %}
+      {% for p in (ann[:imports] || [] of Nil) %}
+        {% imp = p.resolve %}
+        {% if imp.annotation(Quartz::Module) %}
+          {% imps << imp %}
+        {% else %}
+          {% raise "imports must be modules: #{imp.name} is not annotated with @[Quartz::Module]" %}
+        {% end %}
+      {% end %}
+      {% imports_of[m.name] = imps %}
+    {% end %}
+
+    # Module cycles are detected by draining the import graph with
+    # Kahn's algorithm, as N bounded passes (the macro language has no
+    # while); whatever never settles is in a cycle, named in the error.
+    {% settled = [] of Nil %}
+    {% for _pass in (0...all_mods.size) %}
+      {% for m in all_mods %}
+        {% unless settled.includes?(m) %}
+          {% pending = imports_of[m.name].reject { |i| settled.includes?(i) } %}
+          {% if pending.empty? %}{% settled << m %}{% end %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% unresolved = all_mods.reject { |mod| settled.includes?(mod) } %}
+    {% if unresolved.size > 0 %}
+      {% raise "import cycle detected among modules: #{unresolved.map(&.name).join(", ").id}" %}
+    {% end %}
+
+    # Everything annotated must be reachable from the root: an unimported
+    # module is a wiring mistake, not a dormant feature.
+    {% seen = [root] %}
+    {% for _pass in (0...all_mods.size + 1) %}
+      {% for m in seen %}
+        {% for imp in imports_of[m.name] %}
+          {% unless seen.includes?(imp) %}{% seen << imp %}{% end %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% unreachable = all_mods.reject { |mod| seen.includes?(mod) } %}
+    {% if unreachable.size > 0 %}
+      {% raise "module #{unreachable[0].name} is not reachable from root module #{root.name}" %}
+    {% end %}
+
     {% operation_ids = [] of Nil %}
 
     ROUTES = [

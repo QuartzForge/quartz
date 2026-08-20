@@ -69,4 +69,29 @@ describe "compile-time failures" do
     result[:status].success?.should be_false
     result[:output].should contain("Quartz.run(AppModule) is required")
   end
+
+  it "refuses an import that is not a module" do
+    result = compile("bad_import.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("imports must be modules")
+    result[:output].should contain("NotAModule")
+  end
+
+  it "refuses an import cycle among modules, naming the participants" do
+    result = compile("import_cycle.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("import cycle")
+    result[:output].should contain("CycleModuleA")
+    result[:output].should contain("CycleModuleB")
+  end
+
+  it "refuses a module outside the reachable graph" do
+    result = compile("unreachable_module.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not reachable")
+    result[:output].should contain("OrphanModule")
+  end
 end
