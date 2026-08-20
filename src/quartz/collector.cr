@@ -68,15 +68,49 @@ module Quartz
       {% raise "module #{unreachable[0].name} is not reachable from root module #{root.name}" %}
     {% end %}
 
+    # Controllers must be listed in exactly one reachable module, and
+    # every entry must carry the annotation it claims. Providers are
+    # documentation: listed entries must be services, nothing more.
+    {% listed = {} of Nil => Nil %}
+    {% entries = {} of Nil => Nil %}
+    {% for m in seen %}{% entries[m.name] = [] of Nil %}{% end %}
+    {% for m in seen %}
+      {% ann = m.annotation(Quartz::Module) %}
+      {% for p in (ann[:controllers] || [] of Nil) %}
+        {% c = p.resolve %}
+        {% if c.annotation(Quartz::Controller) %}
+          {% listed[c.name] = m %}
+          {% entries[m.name] << c %}
+        {% else %}
+          {% raise "controller #{c.name} is not a controller: not annotated with @[Quartz::Controller]" %}
+        {% end %}
+      {% end %}
+      {% for p in (ann[:providers] || [] of Nil) %}
+        {% pr = p.resolve %}
+        {% unless pr.annotation(Quartz::Service) %}
+          {% raise "provider #{pr.name} is not a service: not annotated with @[Quartz::Service]" %}
+        {% end %}
+      {% end %}
+    {% end %}
+    {% orphans = [] of Nil %}
+    {% for type in Object.all_subclasses %}
+      {% if type.annotation(Quartz::Controller) && !listed.has_key?(type.name) %}
+        {% orphans << type %}
+      {% end %}
+    {% end %}
+    {% if orphans.size > 0 %}
+      {% raise "controller #{orphans[0].name} is not listed in any module" %}
+    {% end %}
+
     {% operation_ids = [] of Nil %}
 
     ROUTES = [
-      {% for type in Object.all_subclasses %}
-        {% controller = type.annotation(Quartz::Controller) %}
-        {% if controller %}
+      {% for m in seen %}
+        {% for c in entries[m.name] %}
+          {% controller = c.annotation(Quartz::Controller) %}
           {% prefix = (controller[:prefix] || "").id.stringify %}
 
-          {% for method in type.methods %}
+          {% for method in c.methods %}
             {% verb = nil %}
             {% route = nil %}
             {% if found = method.annotation(Quartz::Get) %}
@@ -92,7 +126,7 @@ module Quartz
             {% end %}
 
             {% if verb %}
-              {% operation_id = "#{type.name}.#{method.name}" %}
+              {% operation_id = "#{c.name}.#{method.name}" %}
               {% if operation_ids.includes?(operation_id) %}
                 {% raise "duplicate operation id: #{operation_id} is emitted by more than one annotated method" %}
               {% end %}
@@ -149,7 +183,7 @@ module Quartz
                   # would surface as a generic 500 instead of the error the
                   # framework's own handler would render.
                   Quartz::Serializer.call(
-                    Quartz.container.{{ type.name.gsub(/::/, "_").underscore.id }}.{{ method.name }}(
+                    Quartz.container.{{ c.name.gsub(/::/, "_").underscore.id }}.{{ method.name }}(
                       {% for arg in method.args %}
                         {% if arg.name.stringify == "body" %}
                           {{ arg.name }}: ctx.body_as({{ arg.restriction }}),
@@ -171,5 +205,18 @@ module Quartz
         {% end %}
       {% end %}
     ] of Quartz::RouteDef
+
+    MODULES = [
+      {% for m in seen %}
+        Quartz::ModuleInfo.new(
+          "{{ m.name }}",
+          [
+            {% for c in entries[m.name] %}
+              "{{ c.name }}",
+            {% end %}
+          ] of String,
+        ),
+      {% end %}
+    ] of Quartz::ModuleInfo
   end
 end

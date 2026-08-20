@@ -94,4 +94,28 @@ describe "compile-time failures" do
     result[:output].should contain("not reachable")
     result[:output].should contain("OrphanModule")
   end
+
+  it "refuses a controller that is not listed in any module" do
+    result = compile("orphan_controller.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not listed in any module")
+    result[:output].should contain("OrphanController")
+  end
+
+  it "refuses a non-controller listed in controllers" do
+    result = compile("bad_controller_entry.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not a controller")
+    result[:output].should contain("SomeService")
+  end
+
+  it "refuses a non-service listed in providers" do
+    result = compile("bad_provider_entry.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("not a service")
+    result[:output].should contain("SomeController")
+  end
 end

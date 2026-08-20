@@ -60,7 +60,11 @@ class FilesController
   end
 end
 
-@[Quartz::Module(controllers: [ExampleController, FilesController])]
+@[Quartz::Module(controllers: [FilesController])]
+class FilesModule
+end
+
+@[Quartz::Module(imports: [FilesModule], controllers: [ExampleController, BothUserReposController])]
 class SpecModule
 end
 

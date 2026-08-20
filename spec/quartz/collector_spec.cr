@@ -111,3 +111,12 @@ describe "collected routes, end to end" do
     response.json["name"].should eq("patched 7")
   end
 end
+
+describe "Quartz::MODULES" do
+  it "reports each module and the controllers it declares" do
+    Quartz::MODULES.should eq([
+      Quartz::ModuleInfo.new("SpecModule", ["ExampleController", "BothUserReposController"]),
+      Quartz::ModuleInfo.new("FilesModule", ["FilesController"]),
+    ])
+  end
+end
