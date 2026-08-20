@@ -10,6 +10,9 @@ module Quartz
   macro finished
     {% if Quartz::Bootstrap.has_constant?("ROOT") %}
       {% root = Quartz::Bootstrap::ROOT.resolve %}
+      {% unless root.annotation(Quartz::Module) %}
+        {% raise "Quartz.run expects a module annotated with @[Quartz::Module], got #{root.name}" %}
+      {% end %}
     {% else %}
       {% raise "Quartz.run(AppModule) is required: no root module" %}
     {% end %}

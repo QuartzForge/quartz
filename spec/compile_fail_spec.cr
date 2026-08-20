@@ -63,6 +63,13 @@ describe "compile-time failures" do
     result[:output].should contain("Quartz.run expects a module annotated with @[Quartz::Module]")
   end
 
+  it "refuses a hand-declared root that is not annotated" do
+    result = compile("bad_hand_declared_root.cr")
+
+    result[:status].success?.should be_false
+    result[:output].should contain("Quartz.run expects a module annotated with @[Quartz::Module]")
+  end
+
   it "refuses a program without a root module" do
     result = compile("no_root_module.cr")
 
