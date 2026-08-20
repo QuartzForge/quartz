@@ -208,6 +208,10 @@ AppModule (passed to Quartz.run)
     └── controllers: UsersController
 ```
 
+The mount order is deterministic: modules contribute their routes in
+graph order, the root first and then each import in declaration order,
+so the boot log lists the same sequence on every run.
+
 Business modules do not import each other — only the root composes. A
 feature module owns its controllers and depends on services; wiring the
 features together is the root module's only job.
